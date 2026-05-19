@@ -1,0 +1,12 @@
+{
+    "dotnet-test-explorer.testProjectPath": "Obfuscator.Tests.csproj",
+    "dotnet-test-explorer.autoWatchTests": true,
+    "dotnet-test-explorer.showCodeLens": true,
+    "dotnet-test-explorer.testArguments": "--logger \"console;verbosity=detailed\"",
+    "csharp.unitTests.runSettingsPath": "",
+    "omnisharp.enableRoslynAnalyzers": true,
+    "omnisharp.enableEditorConfigSupport": true,
+    "omnisharp.enableMsBuildLoadProjectsOnDemand": false,
+    "omnisharp.projectLoadTimeout": 60,
+    "dotnet.completion.showCompletionItemsFromUnimportedNamespaces": true
+}
