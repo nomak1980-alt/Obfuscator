@@ -216,21 +216,21 @@ button:active {
 }
 
 .stat-item {
-    background: rgba(255, 255, 255, 0.8);
+    background: #1a1a1a;
     padding: 15px;
     border-radius: 10px;
     text-align: center;
-    border: 1px solid rgba(102, 126, 234, 0.2);
+    border: 1px solid #2d2d2d;
 }
 
 .stat-number {
     font-size: 24px;
     font-weight: bold;
-    color: #667eea;
+    color: #0d7bc2;
 }
 
 .stat-label {
-    color: #5a6678;
+    color: #a0a0a0;
     margin-top: 5px;
 }
 
@@ -259,31 +259,32 @@ button:active {
     margin-bottom: 15px;
     font-family: 'Consolas', 'Monaco', monospace;
     font-size: 14px;
+    color: #e0e0e0;
 }
 
 .mapping-selection-table th,
 .mapping-selection-table td {
     padding: 8px;
     text-align: left;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid #2d2d2d;
 }
 
 .mapping-selection-table th {
-    background-color: rgba(102, 126, 234, 0.1);
+    background-color: #252525;
     font-weight: bold;
-    color: #4a5568;
+    color: #e0e0e0;
 }
 
 .mapping-selection-table tr:hover {
-    background-color: rgba(102, 126, 234, 0.05);
+    background-color: #252525;
 }
 
 .mapping-selection-table .original {
-    color: #c53030;
+    color: #f87171;
 }
 
 .mapping-selection-table .obfuscated {
-    color: #2f855a;
+    color: #4ade80;
     font-weight: bold;
 }
 
@@ -319,7 +320,7 @@ button:active {
 .tabs {
     display: flex;
     margin-bottom: 20px;
-    border-bottom: 2px solid rgba(102, 126, 234, 0.2);
+    border-bottom: 1px solid #2d2d2d;
 }
 
 .tab {
@@ -329,19 +330,19 @@ button:active {
     cursor: pointer;
     font-size: 16px;
     font-weight: 600;
-    color: #5a6678;
-    transition: all 0.3s ease;
-    border-bottom: 3px solid transparent;
-    margin-bottom: -2px;
+    color: #a0a0a0;
+    transition: color 0.2s ease;
+    border-bottom: 2px solid transparent;
+    margin-bottom: 0;
 }
 
 .tab:hover {
-    color: #667eea;
+    color: #0d7bc2;
 }
 
 .tab.active {
-    color: #667eea;
-    border-bottom-color: #667eea;
+    color: #0d7bc2;
+    border-bottom-color: #0d7bc2;
 }
 
 .tab-content {
