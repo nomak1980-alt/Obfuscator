@@ -19,6 +19,8 @@ let reverseSqlStringReplaceMapping = new Map();
 let sqlMapping = new Map();
 let reverseSqlMapping = new Map();
 let currentTab = 'csharp';
+let csharpReplaceWords = [];
+let sqlReplaceWords = [];
 
 let statusTimer = null;
 let sqlStatusTimer = null;
@@ -57,14 +59,45 @@ function mapToReverse(map) {
 }
 
 function getReplaceWords(prefix) {
-    const words = [];
-    for (let i = 1; i <= 3; i++) {
-        const el = document.getElementById(`${prefix}${i}`);
-        if (!el) continue;
-        el.value.split('\n').map(w => w.trim()).filter(w => w.length > 0)
-            .forEach(w => words.push(w));
-    }
-    return words;
+    return prefix === 'stringReplace' ? [...csharpReplaceWords] : [...sqlReplaceWords];
+}
+
+function renderChip(word, arr, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.dataset.word = word;
+    const label = document.createElement('span');
+    label.textContent = word;
+    const btn = document.createElement('button');
+    btn.className = 'chip-remove';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', word + ' entfernen');
+    btn.textContent = '✕';
+    btn.addEventListener('click', () => {
+        const idx = arr.indexOf(word);
+        if (idx !== -1) arr.splice(idx, 1);
+        chip.remove();
+        scheduleSave();
+    });
+    chip.appendChild(label);
+    chip.appendChild(btn);
+    container.appendChild(chip);
+}
+
+function addChip(word, arr, containerId) {
+    const trimmed = word.trim();
+    if (!trimmed || arr.includes(trimmed)) return;
+    arr.push(trimmed);
+    renderChip(trimmed, arr, containerId);
+    scheduleSave();
+}
+
+function clearChips(arr, containerId) {
+    arr.length = 0;
+    const container = document.getElementById(containerId);
+    if (container) container.innerHTML = '';
 }
 
 function scheduleSave() {
@@ -117,9 +150,7 @@ function saveState() {
             obfuscatedCode: document.getElementById('obfuscatedCode').value,
             aiResponse: document.getElementById('aiResponse').value,
             finalCode: document.getElementById('finalCode').value,
-            stringReplace1: document.getElementById('stringReplace1').value,
-            stringReplace2: document.getElementById('stringReplace2').value,
-            stringReplace3: document.getElementById('stringReplace3').value,
+            stringReplaceWords: [...csharpReplaceWords],
             stringReplaceMapping: Array.from(stringReplaceMapping.entries()),
             replacementHistory: replacementHistory,
             csharpAutoMapping: Array.from(csharpAutoMapping.entries()),
@@ -138,9 +169,7 @@ function saveState() {
             sqlObfuscatedCode: document.getElementById('sqlObfuscatedCode').value,
             sqlAiResponse: document.getElementById('sqlAiResponse').value,
             sqlFinalCode: document.getElementById('sqlFinalCode').value,
-            sqlStringReplace1: document.getElementById('sqlStringReplace1').value,
-            sqlStringReplace2: document.getElementById('sqlStringReplace2').value,
-            sqlStringReplace3: document.getElementById('sqlStringReplace3').value,
+            sqlStringReplaceWords: [...sqlReplaceWords],
             sqlMapping: Array.from(sqlMapping.entries()),
             sqlStringReplaceMapping: Array.from(sqlStringReplaceMapping.entries()),
             selection: captureSqlSelection(),
@@ -233,9 +262,20 @@ function loadState() {
             document.getElementById('obfuscatedCode').value = cs.obfuscatedCode || '';
             document.getElementById('aiResponse').value = cs.aiResponse || '';
             document.getElementById('finalCode').value = cs.finalCode || '';
-            document.getElementById('stringReplace1').value = cs.stringReplace1 || '';
-            document.getElementById('stringReplace2').value = cs.stringReplace2 || '';
-            document.getElementById('stringReplace3').value = cs.stringReplace3 || '';
+            clearChips(csharpReplaceWords, 'stringReplaceChips');
+            if (Array.isArray(cs.stringReplaceWords)) {
+                cs.stringReplaceWords.forEach(w => addChip(w, csharpReplaceWords, 'stringReplaceChips'));
+            } else {
+                // backward compat: old format had stringReplace1/2/3 as multiline strings
+                const seen = new Set();
+                ['stringReplace1', 'stringReplace2', 'stringReplace3'].forEach(key => {
+                    if (cs[key]) {
+                        cs[key].split('\n').map(w => w.trim()).filter(Boolean).forEach(w => {
+                            if (!seen.has(w)) { seen.add(w); addChip(w, csharpReplaceWords, 'stringReplaceChips'); }
+                        });
+                    }
+                });
+            }
 
             stringReplaceMapping = new Map(cs.stringReplaceMapping || []);
             reverseStringReplaceMapping = buildReverse(stringReplaceMapping);
@@ -258,9 +298,19 @@ function loadState() {
             document.getElementById('sqlObfuscatedCode').value = sq.sqlObfuscatedCode || '';
             document.getElementById('sqlAiResponse').value = sq.sqlAiResponse || '';
             document.getElementById('sqlFinalCode').value = sq.sqlFinalCode || '';
-            document.getElementById('sqlStringReplace1').value = sq.sqlStringReplace1 || '';
-            document.getElementById('sqlStringReplace2').value = sq.sqlStringReplace2 || '';
-            document.getElementById('sqlStringReplace3').value = sq.sqlStringReplace3 || '';
+            clearChips(sqlReplaceWords, 'sqlStringReplaceChips');
+            if (Array.isArray(sq.sqlStringReplaceWords)) {
+                sq.sqlStringReplaceWords.forEach(w => addChip(w, sqlReplaceWords, 'sqlStringReplaceChips'));
+            } else {
+                const seen = new Set();
+                ['sqlStringReplace1', 'sqlStringReplace2', 'sqlStringReplace3'].forEach(key => {
+                    if (sq[key]) {
+                        sq[key].split('\n').map(w => w.trim()).filter(Boolean).forEach(w => {
+                            if (!seen.has(w)) { seen.add(w); addChip(w, sqlReplaceWords, 'sqlStringReplaceChips'); }
+                        });
+                    }
+                });
+            }
 
             sqlMapping = new Map(sq.sqlMapping || []);
             reverseSqlMapping = buildReverse(sqlMapping);
@@ -537,9 +587,11 @@ async function copyFinal() { await copyToClipboard('finalCode', showStatus, 'Fin
 
 function clearAll() {
     if (!confirm('Alle Daten löschen? Das Mapping geht verloren!')) return;
-    ['originalCode', 'obfuscatedCode', 'aiResponse', 'finalCode',
-        'stringReplace1', 'stringReplace2', 'stringReplace3']
+    ['originalCode', 'obfuscatedCode', 'aiResponse', 'finalCode']
         .forEach(id => { document.getElementById(id).value = ''; });
+    clearChips(csharpReplaceWords, 'stringReplaceChips');
+    const csInput = document.getElementById('stringReplaceInput');
+    if (csInput) csInput.value = '';
 
     stringReplaceMapping = new Map();
     reverseStringReplaceMapping = new Map();
@@ -721,9 +773,11 @@ async function copySqlFinal() { await copyToClipboard('sqlFinalCode', showSqlSta
 
 function clearSqlAll() {
     if (!confirm('Alle SQL Daten löschen? Das Mapping geht verloren!')) return;
-    ['sqlOriginalCode', 'sqlObfuscatedCode', 'sqlAiResponse', 'sqlFinalCode',
-        'sqlStringReplace1', 'sqlStringReplace2', 'sqlStringReplace3']
+    ['sqlOriginalCode', 'sqlObfuscatedCode', 'sqlAiResponse', 'sqlFinalCode']
         .forEach(id => { document.getElementById(id).value = ''; });
+    clearChips(sqlReplaceWords, 'sqlStringReplaceChips');
+    const sqlInput = document.getElementById('sqlStringReplaceInput');
+    if (sqlInput) sqlInput.value = '';
 
     sqlMapping = new Map();
     reverseSqlMapping = new Map();
@@ -831,14 +885,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const watchedInputs = [
         'originalCode', 'obfuscatedCode', 'aiResponse', 'finalCode',
-        'stringReplace1', 'stringReplace2', 'stringReplace3',
-        'sqlOriginalCode', 'sqlObfuscatedCode', 'sqlAiResponse', 'sqlFinalCode',
-        'sqlStringReplace1', 'sqlStringReplace2', 'sqlStringReplace3'
+        'sqlOriginalCode', 'sqlObfuscatedCode', 'sqlAiResponse', 'sqlFinalCode'
     ];
     watchedInputs.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('input', scheduleSave);
     });
+
+    const csharpChipInput = document.getElementById('stringReplaceInput');
+    if (csharpChipInput) {
+        csharpChipInput.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') {
+                ev.preventDefault();
+                addChip(csharpChipInput.value, csharpReplaceWords, 'stringReplaceChips');
+                csharpChipInput.value = '';
+            }
+        });
+    }
+
+    const sqlChipInput = document.getElementById('sqlStringReplaceInput');
+    if (sqlChipInput) {
+        sqlChipInput.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') {
+                ev.preventDefault();
+                addChip(sqlChipInput.value, sqlReplaceWords, 'sqlStringReplaceChips');
+                sqlChipInput.value = '';
+            }
+        });
+    }
 
     document.addEventListener('change', (ev) => {
         if (ev.target && ev.target.matches &&

@@ -8,16 +8,18 @@
         content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <title>Code Obfuscator – C# &amp; MS SQL</title>
     <link rel="stylesheet" href="obfuscator.css">
+    <link rel="icon" href="COIcon.jpg" type="image/jpeg">
 </head>
 
 <body>
     <div class="container">
-        <h1>🔒 Code Obfuscator</h1>
-
-        <div class="data-toolbar">
-            <button class="btn-export" data-action="exportState" aria-label="Daten als Backup exportieren">💾 Exportieren</button>
-            <button class="btn-import" data-action="triggerImport" aria-label="Daten aus Backup importieren">📂 Importieren</button>
-            <input type="file" id="importFileInput" accept=".json" style="display: none;" aria-hidden="true">
+        <div class="header-row">
+            <img src="COHeader.jpg" alt="Code Obfuscator" class="header-logo">
+            <div class="data-toolbar">
+                <button class="btn-export" data-action="exportState" aria-label="Daten als Backup exportieren">💾 Exportieren</button>
+                <button class="btn-import" data-action="triggerImport" aria-label="Daten aus Backup importieren">📂 Importieren</button>
+                <input type="file" id="importFileInput" accept=".json" style="display: none;" aria-hidden="true">
+            </div>
         </div>
 
         <div class="tabs" role="tablist" aria-label="Code-Typ">
@@ -36,39 +38,28 @@
                 Füge KI-Antwort ein → Klicke "Zurückverwandeln"
             </div>
 
-            <div class="section">
-                <h3>
-                    <svg class="icon" viewBox="0 0 24 24">
-                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                    </svg>
-                    Originaler C# Code
-                </h3>
-                <textarea id="originalCode" aria-label="Originaler C# Code" placeholder="Füge hier deinen originalen C# Code ein..."></textarea>
-            </div>
-
-            <div class="section">
-                <h3>
-                    <svg class="icon" viewBox="0 0 24 24">
-                        <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z" />
-                    </svg>
-                    String-Replace
-                </h3>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568;">Replace Set 1:</label>
-                        <textarea id="stringReplace1" placeholder="Wörter (zeilenweise trennen)" style="min-height: 100px; font-size: 12px;"></textarea>
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568;">Replace Set 2:</label>
-                        <textarea id="stringReplace2" placeholder="Wörter (zeilenweise trennen)" style="min-height: 100px; font-size: 12px;"></textarea>
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568;">Replace Set 3:</label>
-                        <textarea id="stringReplace3" placeholder="Wörter (zeilenweise trennen)" style="min-height: 100px; font-size: 12px;"></textarea>
-                    </div>
+            <div class="code-row">
+                <div class="section">
+                    <h3>
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                        </svg>
+                        Originaler C# Code
+                    </h3>
+                    <textarea id="originalCode" aria-label="Originaler C# Code" placeholder="Füge hier deinen originalen C# Code ein..."></textarea>
                 </div>
-                <div class="info-box">
-                    <strong>Hinweis:</strong> Hier können Sie Wörter eintragen, die durch Platzhalter ersetzt werden sollen. Jede Zeile = ein Wort.
+
+                <div class="section">
+                    <h3>
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z" />
+                        </svg>
+                        String-Replace
+                    </h3>
+                    <div class="chip-input-wrapper">
+                        <input type="text" id="stringReplaceInput" placeholder="Wort eingeben und Enter drücken…" class="chip-input-field" aria-label="String-Replace Wort hinzufügen">
+                        <div id="stringReplaceChips" class="chip-container" aria-label="String-Replace Wörter" aria-live="polite"></div>
+                    </div>
                 </div>
             </div>
 
@@ -147,39 +138,28 @@
                 SQL-Elemente aus → Klicke "Verschleiern" → Kopiere den verschleierten Code für KI → Füge KI-Antwort ein → Klicke "Zurückverwandeln"
             </div>
 
-            <div class="section">
-                <h3>
-                    <svg class="icon" viewBox="0 0 24 24">
-                        <path d="M12,2C17.53,2 22,6.47 22,12C22,17.53 17.53,22 12,22C6.47,22 2,17.53 2,12C2,6.47 6.47,2 12,2M15.59,7L12,10.59L8.41,7L7,8.41L10.59,12L7,15.59L8.41,17L12,13.41L15.59,17L17,15.59L13.41,12L17,8.41L15.59,7Z" />
-                    </svg>
-                    Originaler MS SQL Code
-                </h3>
-                <textarea id="sqlOriginalCode" aria-label="Originaler MS SQL Code" placeholder="Füge hier deine originalen SQL Queries ein..."></textarea>
-            </div>
-
-            <div class="section">
-                <h3>
-                    <svg class="icon" viewBox="0 0 24 24">
-                        <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z" />
-                    </svg>
-                    SQL String-Replace (vor Analyse)
-                </h3>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568;">Replace Set 1:</label>
-                        <textarea id="sqlStringReplace1" placeholder="Wörter (zeilenweise trennen)" style="min-height: 100px; font-size: 12px;"></textarea>
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568;">Replace Set 2:</label>
-                        <textarea id="sqlStringReplace2" placeholder="Wörter (zeilenweise trennen)" style="min-height: 100px; font-size: 12px;"></textarea>
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568;">Replace Set 3:</label>
-                        <textarea id="sqlStringReplace3" placeholder="Wörter (zeilenweise trennen)" style="min-height: 100px; font-size: 12px;"></textarea>
-                    </div>
+            <div class="code-row">
+                <div class="section">
+                    <h3>
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M12,2C17.53,2 22,6.47 22,12C22,17.53 17.53,22 12,22C6.47,22 2,17.53 2,12C2,6.47 6.47,2 12,2M15.59,7L12,10.59L8.41,7L7,8.41L10.59,12L7,15.59L8.41,17L12,13.41L15.59,17L17,15.59L13.41,12L17,8.41L15.59,7Z" />
+                        </svg>
+                        Originaler MS SQL Code
+                    </h3>
+                    <textarea id="sqlOriginalCode" aria-label="Originaler MS SQL Code" placeholder="Füge hier deine originalen SQL Queries ein..."></textarea>
                 </div>
-                <div class="info-box">
-                    <strong>Hinweis:</strong> Hier können Sie Wörter eintragen, die vor der SQL-Analyse durch Platzhalter ersetzt werden sollen.
+
+                <div class="section">
+                    <h3>
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z" />
+                        </svg>
+                        SQL String-Replace (vor Analyse)
+                    </h3>
+                    <div class="chip-input-wrapper">
+                        <input type="text" id="sqlStringReplaceInput" placeholder="Wort eingeben und Enter drücken…" class="chip-input-field" aria-label="SQL String-Replace Wort hinzufügen">
+                        <div id="sqlStringReplaceChips" class="chip-container" aria-label="SQL String-Replace Wörter" aria-live="polite"></div>
+                    </div>
                 </div>
             </div>
 
