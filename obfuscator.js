@@ -386,6 +386,9 @@ function analyzeCode() {
     document.getElementById('stringReplaceMappingSection').style.display = 'none';
     document.getElementById('aiResponseSection').style.display = 'none';
     document.getElementById('finalSection').style.display = 'none';
+    document.getElementById('obfuscatedCode').value = '';
+    document.getElementById('aiResponse').value = '';
+    document.getElementById('finalCode').value = '';
 
     const total = stringReplaceMapping.size + csharpAutoMapping.size;
     showStatus(`${total} Elemente erkannt. Bitte Auswahl treffen und "Verschleiern" klicken.`);
@@ -585,6 +588,13 @@ function analyzeSqlCode() {
     } else {
         showSqlStatus('Keine SQL-Elemente oder String-Replace-Wörter gefunden.', 'error');
     }
+    document.getElementById('sqlObfuscatedSection').style.display = 'none';
+    document.getElementById('sqlAiResponseSection').style.display = 'none';
+    document.getElementById('sqlMappingSection').style.display = 'none';
+    document.getElementById('sqlFinalSection').style.display = 'none';
+    document.getElementById('sqlObfuscatedCode').value = '';
+    document.getElementById('sqlAiResponse').value = '';
+    document.getElementById('sqlFinalCode').value = '';
     saveState();
 }
 
@@ -669,6 +679,8 @@ function obfuscateSqlCode() {
     document.getElementById('sqlObfuscatedSection').style.display = 'block';
     document.getElementById('sqlAiResponseSection').style.display = 'block';
     document.getElementById('sqlMappingSection').style.display = 'block';
+    document.getElementById('sqlFinalSection').style.display = 'none';
+    document.getElementById('sqlFinalCode').value = '';
 
     updateSqlMappingDisplay();
     const totalReplaced = sqlMapping.size + sqlStringReplaceMapping.size;
