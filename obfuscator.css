@@ -21,9 +21,10 @@ body {
     border: 1px solid #2d2d2d;
 }
 
-h1 {
-    color: #e0e0e0;
-    font-size: 2.5em;
+.header-logo {
+    height: 52px;
+    width: auto;
+    display: block;
 }
 
 .section {
