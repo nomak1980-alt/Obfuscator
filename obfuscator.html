@@ -189,18 +189,6 @@
 
             <div id="sqlStatusMessage" role="status" aria-live="polite"></div>
 
-            <div class="section" id="sqlUsedMappingSection" style="display: none;">
-                <h3>
-                    <span class="h3-title">
-                        <svg class="icon" viewBox="0 0 24 24">
-                            <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z" />
-                        </svg>
-                        Verwendete Mappings
-                    </span>
-                </h3>
-                <div class="mapping-display" id="sqlUsedMappingDisplay"></div>
-            </div>
-
             <div class="section" id="sqlMappingSelectionSection" style="display: none;">
                 <h3 class="collapsible">
                     <span class="h3-title">
@@ -215,6 +203,18 @@
                 <div class="button-group" style="margin-top: 15px;">
                     <button class="btn-primary" data-action="obfuscateSqlCode">🔒 Ausgewählte SQL-Elemente Verschleiern</button>
                 </div>
+            </div>
+
+            <div class="section" id="sqlUsedMappingSection" style="display: none;">
+                <h3>
+                    <span class="h3-title">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z" />
+                        </svg>
+                        Verwendete Mappings
+                    </span>
+                </h3>
+                <div class="mapping-display" id="sqlUsedMappingDisplay"></div>
             </div>
 
 
