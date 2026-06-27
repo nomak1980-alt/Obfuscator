@@ -382,3 +382,64 @@ h4 {
 .code-row > .section {
     margin-bottom: 0;
 }
+
+.chip-input-wrapper {
+    display: flex;
+    flex-direction: column;
+}
+
+.chip-input-field {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #2d2d2d;
+    border-radius: 8px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+    background: #0f0f0f;
+    color: #e0e0e0;
+    transition: border-color 0.3s ease;
+}
+
+.chip-input-field:focus {
+    outline: none;
+    border-color: #0d7bc2;
+}
+
+.chip-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+    min-height: 40px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: rgba(13, 123, 194, 0.2);
+    border: 1px solid rgba(13, 123, 194, 0.4);
+    border-radius: 20px;
+    color: #e0e0e0;
+    font-size: 13px;
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.chip-remove {
+    background: none;
+    border: none;
+    color: #a0a0a0;
+    cursor: pointer;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: normal;
+}
+
+.chip-remove:hover {
+    color: #f87171;
+    box-shadow: none;
+}
