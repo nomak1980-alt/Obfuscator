@@ -723,12 +723,11 @@ function obfuscateSqlCode() {
     const strCheckboxes = Array.from(selectedCheckboxes).filter(cb => cb.dataset.type === 'String');
     const sqlCheckboxes = Array.from(selectedCheckboxes).filter(cb => cb.dataset.type !== 'String');
 
-    // Schritt 1: Nur ausgewählte String-Replace-Wörter anwenden
-    const selectedStrWords = strCheckboxes.map(cb => cb.dataset.element);
-    const sr = Core.analyzeSqlStringReplace(selectedStrWords, originalCode);
-    sqlStringReplaceMapping = new Map(sr.entries.map(e => [e.word, e.placeholder]));
+    // Schritt 1: Ausgewählte String-Replace-Einträge direkt aus den Checkboxen übernehmen
+    const strEntries = strCheckboxes.map(cb => ({ from: cb.dataset.element, to: cb.dataset.obfuscated }));
+    sqlStringReplaceMapping = new Map(strEntries.map(e => [e.from, e.to]));
     reverseSqlStringReplaceMapping = buildReverse(sqlStringReplaceMapping);
-    let obfuscatedCode = sr.processedCode;
+    let obfuscatedCode = Core.applyReplacements(originalCode, strEntries);
 
     // Schritt 2: Ausgewählte SQL-Elemente verschleiern
     const selection = sqlCheckboxes.map(cb => ({

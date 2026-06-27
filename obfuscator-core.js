@@ -203,12 +203,23 @@
     function analyzeSqlStringReplace(words, code) {
         const suffix = uniqueSuffix(code, [SQL_STR_PREFIX]);
         const entries = [];
-        const seen = new Set();
+        const seenVariants = new Set();
+        const processedBaseWords = new Set();
         let counter = 1;
         words.forEach(word => {
-            if (seen.has(word)) return;
-            seen.add(word);
-            entries.push({ word, placeholder: `${SQL_STR_PREFIX}${suffix}${counter++}` });
+            const wordLower = word.toLowerCase();
+            if (processedBaseWords.has(wordLower)) return;
+            processedBaseWords.add(wordLower);
+            const searchRegex = wordRegex(word, 'gi');
+            let match;
+            while ((match = searchRegex.exec(code)) !== null) {
+                const variant = match[0];
+                if (variant.length === 0) { searchRegex.lastIndex++; continue; }
+                if (!seenVariants.has(variant)) {
+                    seenVariants.add(variant);
+                    entries.push({ word: variant, placeholder: `${SQL_STR_PREFIX}${suffix}${counter++}` });
+                }
+            }
         });
         const processedCode = applyReplacements(
             code,
