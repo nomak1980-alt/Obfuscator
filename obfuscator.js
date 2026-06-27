@@ -49,6 +49,13 @@ function buildReverse(map) {
     return rev;
 }
 
+function mapToForward(map) {
+    return Array.from(map, ([from, to]) => ({ from, to }));
+}
+function mapToReverse(map) {
+    return Array.from(map, ([placeholder, original]) => ({ placeholder, original }));
+}
+
 function getReplaceWords(prefix) {
     const words = [];
     for (let i = 1; i <= 3; i++) {
@@ -478,16 +485,10 @@ function obfuscateCode() {
     reverseCsharpAutoMapping = buildReverse(csharpAutoMapping);
 
     // Schritt 1: String-Replace zuerst
-    let obfuscatedCode = Core.applyReplacements(
-        originalCode,
-        Array.from(stringReplaceMapping.entries()).map(([from, to]) => ({ from, to }))
-    );
+    let obfuscatedCode = Core.applyReplacements(originalCode, mapToForward(stringReplaceMapping));
 
     // Schritt 2: Auto-Mapping danach
-    obfuscatedCode = Core.applyReplacements(
-        obfuscatedCode,
-        Array.from(csharpAutoMapping.entries()).map(([from, to]) => ({ from, to }))
-    );
+    obfuscatedCode = Core.applyReplacements(obfuscatedCode, mapToForward(csharpAutoMapping));
 
     document.getElementById('obfuscatedCode').value = obfuscatedCode;
     document.getElementById('obfuscatedSection').style.display = 'block';
@@ -519,10 +520,7 @@ function deobfuscateCode() {
     }
 
     // Schritt 1: Auto-Mapping zuerst rückgängig
-    let finalCode = Core.reverseReplacements(aiResponse,
-        Array.from(reverseCsharpAutoMapping.entries())
-            .map(([placeholder, original]) => ({ placeholder, original }))
-    );
+    let finalCode = Core.reverseReplacements(aiResponse, mapToReverse(reverseCsharpAutoMapping));
 
     // Schritt 2: String-Replace rückgängig
     finalCode = Core.reverseReplacements(finalCode, replacementHistory);
@@ -703,12 +701,9 @@ function deobfuscateSqlCode() {
         return;
     }
 
-    let finalCode = aiResponse;
     // Schritt 1: SQL-Elemente zurück, Schritt 2: String-Replace zurück.
-    finalCode = Core.reverseReplacements(finalCode,
-        Array.from(reverseSqlMapping.entries()).map(([placeholder, original]) => ({ placeholder, original })));
-    finalCode = Core.reverseReplacements(finalCode,
-        Array.from(reverseSqlStringReplaceMapping.entries()).map(([placeholder, original]) => ({ placeholder, original })));
+    let finalCode = Core.reverseReplacements(aiResponse, mapToReverse(reverseSqlMapping));
+    finalCode = Core.reverseReplacements(finalCode, mapToReverse(reverseSqlStringReplaceMapping));
 
     document.getElementById('sqlFinalCode').value = finalCode;
     document.getElementById('sqlFinalSection').style.display = 'block';
