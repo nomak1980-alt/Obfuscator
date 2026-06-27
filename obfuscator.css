@@ -83,47 +83,53 @@ textarea:focus {
 button {
     padding: 12px 25px;
     border: none;
-    border-radius: 10px;
+    border-radius: 8px;
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: background-color 0.2s ease;
     text-transform: uppercase;
     letter-spacing: 1px;
     position: relative;
     overflow: hidden;
 }
 
-/* Sichtbarer Tastatur-Fokus (Barrierefreiheit). */
 button:focus-visible,
 .tab:focus-visible,
 input[type="checkbox"]:focus-visible {
-    outline: 3px solid #2b6cb0;
+    outline: 2px solid #0d7bc2;
     outline-offset: 2px;
 }
 
 .btn-primary {
-    background: linear-gradient(45deg, #667eea, #764ba2);
+    background: #0d7bc2;
     color: white;
+}
+
+.btn-primary:hover {
+    background: #0e8dd5;
 }
 
 .btn-secondary {
-    background: linear-gradient(45deg, #48bb78, #38a169);
+    background: #d97706;
     color: white;
+}
+
+.btn-secondary:hover {
+    background: #ea8c1a;
 }
 
 .btn-danger {
-    background: linear-gradient(45deg, #f56565, #e53e3e);
+    background: #d97706;
     color: white;
 }
 
-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+.btn-danger:hover {
+    background: #ea8c1a;
 }
 
 button:active {
-    transform: translateY(0);
+    opacity: 0.9;
 }
 
 .mapping-display {
@@ -287,17 +293,25 @@ button:active {
 }
 
 .btn-export {
-    background: linear-gradient(45deg, #4299e1, #3182ce);
+    background: #0d7bc2;
     color: white;
     padding: 8px 18px;
     font-size: 14px;
 }
 
+.btn-export:hover {
+    background: #0e8dd5;
+}
+
 .btn-import {
-    background: linear-gradient(45deg, #ed8936, #dd6b20);
+    background: #d97706;
     color: white;
     padding: 8px 18px;
     font-size: 14px;
+}
+
+.btn-import:hover {
+    background: #ea8c1a;
 }
 
 .tabs {
