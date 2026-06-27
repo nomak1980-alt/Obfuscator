@@ -9,7 +9,9 @@ $files = @(
     "obfuscator.html",
     "obfuscator.css",
     "obfuscator-core.js",
-    "obfuscator.js"
+    "obfuscator.js",
+    "COHeader.jpg",
+    "COIcon.jpg"
 )
 
 foreach ($file in $files) {
