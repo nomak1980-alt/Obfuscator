@@ -438,7 +438,9 @@ function analyzeCode() {
     }
 
     renderCsharpSelectionTable(stringReplaceMapping, csharpAutoMapping, csharpAutoTypeMap);
-    document.getElementById('csharpMappingSelectionSection').style.display = 'block';
+    const csharpSelSec = document.getElementById('csharpMappingSelectionSection');
+    csharpSelSec.style.display = 'block';
+    csharpSelSec.classList.remove('collapsed');
     document.getElementById('obfuscatedSection').style.display = 'none';
     document.getElementById('stringReplaceMappingSection').style.display = 'none';
     document.getElementById('aiResponseSection').style.display = 'none';
@@ -543,7 +545,7 @@ function obfuscateCode() {
     document.getElementById('obfuscatedCode').value = obfuscatedCode;
     document.getElementById('obfuscatedSection').style.display = 'block';
     document.getElementById('aiResponseSection').style.display = 'block';
-    document.getElementById('csharpMappingSelectionSection').style.display = 'none';
+    document.getElementById('csharpMappingSelectionSection').classList.add('collapsed');
 
     updateStringReplaceMappingDisplay();
     document.getElementById('stringReplaceMappingSection').style.display =
@@ -688,8 +690,12 @@ function displaySqlMappingSelection(potentialMappings) {
         document.querySelectorAll('.sql-mapping-checkbox').forEach(cb => cb.checked = this.checked);
     });
 
-    document.getElementById('sqlMappingSelectionSection').style.display = 'block';
-    document.getElementById('sqlStringReplaceMappingSection').style.display = 'block';
+    const sqlSelSec = document.getElementById('sqlMappingSelectionSection');
+    sqlSelSec.style.display = 'block';
+    sqlSelSec.classList.remove('collapsed');
+    const sqlSrSec = document.getElementById('sqlStringReplaceMappingSection');
+    sqlSrSec.style.display = 'block';
+    sqlSrSec.classList.remove('collapsed');
     updateSqlStringReplaceMappingDisplay();
 }
 
@@ -729,6 +735,8 @@ function obfuscateSqlCode() {
     document.getElementById('sqlObfuscatedSection').style.display = 'block';
     document.getElementById('sqlAiResponseSection').style.display = 'block';
     document.getElementById('sqlMappingSection').style.display = 'block';
+    document.getElementById('sqlMappingSelectionSection').classList.add('collapsed');
+    document.getElementById('sqlStringReplaceMappingSection').classList.add('collapsed');
     document.getElementById('sqlFinalSection').style.display = 'none';
     document.getElementById('sqlFinalCode').value = '';
 
@@ -872,8 +880,13 @@ const ACTIONS = {
 document.addEventListener('DOMContentLoaded', () => {
     loadState();
 
-    // Zentrale Klick-Delegation für alle [data-action]-Elemente.
+    // Zentrale Klick-Delegation für alle [data-action]-Elemente und collapsible Header.
     document.addEventListener('click', (ev) => {
+        const h3 = ev.target.closest && ev.target.closest('h3.collapsible');
+        if (h3 && !ev.target.closest('[data-action]')) {
+            h3.closest('.section').classList.toggle('collapsed');
+            return;
+        }
         const el = ev.target.closest && ev.target.closest('[data-action]');
         if (!el) return;
         const fn = ACTIONS[el.dataset.action];

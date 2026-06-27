@@ -23,6 +23,7 @@
   },
   "homepage": "https://github.com/nomak1980-alt/Obfuscator#readme",
   "devDependencies": {
-    "jsdom": "^29.1.1"
+    "jsdom": "^29.1.1",
+    "playwright": "^1.61.1"
   }
 }
