@@ -370,3 +370,15 @@ h4 {
     color: #a0a0a0;
     padding: 20px;
 }
+
+.code-row {
+    display: grid;
+    grid-template-columns: 65fr 35fr;
+    gap: 20px;
+    align-items: start;
+    margin-bottom: 30px;
+}
+
+.code-row > .section {
+    margin-bottom: 0;
+}
