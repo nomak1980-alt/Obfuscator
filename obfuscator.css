@@ -352,3 +352,9 @@ button:active {
 .tab-content.active {
     display: block;
 }
+
+h4 {
+    color: #a0a0a0;
+    text-align: center;
+    margin-top: 40px;
+}
