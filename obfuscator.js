@@ -159,7 +159,7 @@ function saveState() {
             sections: captureSections([
                 'csharpMappingSelectionSection',
                 'obfuscatedSection',
-                'stringReplaceMappingSection',
+                'csharpUsedMappingSection',
                 'aiResponseSection',
                 'finalSection'
             ])
@@ -174,9 +174,8 @@ function saveState() {
             sqlStringReplaceMapping: Array.from(sqlStringReplaceMapping.entries()),
             selection: captureSqlSelection(),
             sections: captureSections([
-                'sqlStringReplaceMappingSection',
+                'sqlUsedMappingSection',
                 'sqlMappingSelectionSection',
-                'sqlMappingSection',
                 'sqlObfuscatedSection',
                 'sqlAiResponseSection',
                 'sqlFinalSection'
@@ -318,8 +317,7 @@ function loadState() {
             reverseSqlStringReplaceMapping = buildReverse(sqlStringReplaceMapping);
 
             if (sq.selection && sq.selection.length > 0) restoreSqlSelection(sq.selection);
-            if (sqlMapping.size > 0) updateSqlMappingDisplay();
-            if (sqlStringReplaceMapping.size > 0) updateSqlStringReplaceMappingDisplay();
+            if (sqlMapping.size > 0 || sqlStringReplaceMapping.size > 0) updateSqlUsedMappingDisplay();
             applySections(sq.sections);
         }
 
@@ -442,7 +440,7 @@ function analyzeCode() {
     csharpSelSec.style.display = 'block';
     csharpSelSec.classList.remove('collapsed');
     document.getElementById('obfuscatedSection').style.display = 'none';
-    document.getElementById('stringReplaceMappingSection').style.display = 'none';
+    document.getElementById('csharpUsedMappingSection').style.display = 'none';
     document.getElementById('aiResponseSection').style.display = 'none';
     document.getElementById('finalSection').style.display = 'none';
     document.getElementById('obfuscatedCode').value = '';
@@ -547,17 +545,17 @@ function obfuscateCode() {
     document.getElementById('aiResponseSection').style.display = 'block';
     document.getElementById('csharpMappingSelectionSection').classList.add('collapsed');
 
-    updateStringReplaceMappingDisplay();
-    document.getElementById('stringReplaceMappingSection').style.display =
-        stringReplaceMapping.size > 0 ? 'block' : 'none';
-
+    updateCsharpUsedMappingDisplay();
     const total = stringReplaceMapping.size + csharpAutoMapping.size;
+    document.getElementById('csharpUsedMappingSection').style.display = total > 0 ? 'block' : 'none';
+
     showStatus(`Code erfolgreich verschleiert! ${total} Elemente ersetzt.`);
     saveState();
 }
 
-function updateStringReplaceMappingDisplay() {
-    renderMappingList('stringReplaceMappingDisplay', stringReplaceMapping, 'Keine String-Replace-Mappings gefunden');
+function updateCsharpUsedMappingDisplay() {
+    const combined = new Map([...stringReplaceMapping, ...csharpAutoMapping]);
+    renderMappingList('csharpUsedMappingDisplay', combined, 'Keine Mappings vorhanden');
 }
 
 function deobfuscateCode() {
@@ -602,7 +600,7 @@ function clearAll() {
     reverseCsharpAutoMapping = new Map();
     csharpAutoTypeMap = new Map();
 
-    ['csharpMappingSelectionSection', 'obfuscatedSection', 'stringReplaceMappingSection',
+    ['csharpMappingSelectionSection', 'obfuscatedSection', 'csharpUsedMappingSection',
         'aiResponseSection', 'finalSection']
         .forEach(id => { document.getElementById(id).style.display = 'none'; });
 
@@ -642,7 +640,7 @@ function analyzeSqlCode() {
     }
     document.getElementById('sqlObfuscatedSection').style.display = 'none';
     document.getElementById('sqlAiResponseSection').style.display = 'none';
-    document.getElementById('sqlMappingSection').style.display = 'none';
+    document.getElementById('sqlUsedMappingSection').style.display = 'none';
     document.getElementById('sqlFinalSection').style.display = 'none';
     document.getElementById('sqlObfuscatedCode').value = '';
     document.getElementById('sqlAiResponse').value = '';
@@ -669,8 +667,21 @@ function displaySqlMappingSelection(potentialMappings) {
     table.appendChild(thead);
 
     const tbody = document.createElement('tbody');
-    const sortedElements = Array.from(potentialMappings.keys()).sort((a, b) => a.localeCompare(b));
 
+    // String-Replace-Wörter zuerst (aus sqlStringReplaceMapping)
+    sqlStringReplaceMapping.forEach((placeholder, word) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><input type="checkbox" class="sql-mapping-checkbox" data-element="${escapeHtml(word)}" data-type="String" data-obfuscated="${escapeHtml(placeholder)}" aria-label="${escapeHtml(word)} verschleiern" checked></td>
+            <td>String</td>
+            <td class="original">${escapeHtml(word)}</td>
+            <td class="obfuscated">${escapeHtml(placeholder)}</td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    // SQL-Elemente alphabetisch sortiert
+    const sortedElements = Array.from(potentialMappings.keys()).sort((a, b) => a.localeCompare(b));
     sortedElements.forEach(element => {
         const mapping = potentialMappings.get(element);
         const row = document.createElement('tr');
@@ -693,10 +704,6 @@ function displaySqlMappingSelection(potentialMappings) {
     const sqlSelSec = document.getElementById('sqlMappingSelectionSection');
     sqlSelSec.style.display = 'block';
     sqlSelSec.classList.remove('collapsed');
-    const sqlSrSec = document.getElementById('sqlStringReplaceMappingSection');
-    sqlSrSec.style.display = 'block';
-    sqlSrSec.classList.remove('collapsed');
-    updateSqlStringReplaceMappingDisplay();
 }
 
 function obfuscateSqlCode() {
@@ -712,14 +719,19 @@ function obfuscateSqlCode() {
         return;
     }
 
-    // Schritt 1: String-Replace (befüllt Maps, liefert vorverarbeiteten Code).
-    const sr = Core.analyzeSqlStringReplace(getReplaceWords('sqlStringReplace'), originalCode);
+    // Checkboxen nach Typ trennen
+    const strCheckboxes = Array.from(selectedCheckboxes).filter(cb => cb.dataset.type === 'String');
+    const sqlCheckboxes = Array.from(selectedCheckboxes).filter(cb => cb.dataset.type !== 'String');
+
+    // Schritt 1: Nur ausgewählte String-Replace-Wörter anwenden
+    const selectedStrWords = strCheckboxes.map(cb => cb.dataset.element);
+    const sr = Core.analyzeSqlStringReplace(selectedStrWords, originalCode);
     sqlStringReplaceMapping = new Map(sr.entries.map(e => [e.word, e.placeholder]));
     reverseSqlStringReplaceMapping = buildReverse(sqlStringReplaceMapping);
     let obfuscatedCode = sr.processedCode;
 
-    // Schritt 2: SQL-Elemente verschleiern (frische, kollisionssichere Platzhalter).
-    const selection = Array.from(selectedCheckboxes).map(cb => ({
+    // Schritt 2: Ausgewählte SQL-Elemente verschleiern
+    const selection = sqlCheckboxes.map(cb => ({
         element: cb.dataset.element, type: cb.dataset.type
     }));
     const assigned = Core.assignSqlPlaceholders(selection, obfuscatedCode);
@@ -734,20 +746,20 @@ function obfuscateSqlCode() {
     document.getElementById('sqlObfuscatedCode').value = obfuscatedCode;
     document.getElementById('sqlObfuscatedSection').style.display = 'block';
     document.getElementById('sqlAiResponseSection').style.display = 'block';
-    document.getElementById('sqlMappingSection').style.display = 'block';
     document.getElementById('sqlMappingSelectionSection').classList.add('collapsed');
-    document.getElementById('sqlStringReplaceMappingSection').classList.add('collapsed');
     document.getElementById('sqlFinalSection').style.display = 'none';
     document.getElementById('sqlFinalCode').value = '';
 
-    updateSqlMappingDisplay();
+    updateSqlUsedMappingDisplay();
     const totalReplaced = sqlMapping.size + sqlStringReplaceMapping.size;
+    document.getElementById('sqlUsedMappingSection').style.display = totalReplaced > 0 ? 'block' : 'none';
     showSqlStatus(`SQL Code erfolgreich verschleiert! ${totalReplaced} Elemente ersetzt (${sqlStringReplaceMapping.size} Strings, ${sqlMapping.size} SQL-Elemente).`);
     saveState();
 }
 
-function updateSqlMappingDisplay() {
-    renderMappingList('sqlMappingDisplay', sqlMapping, 'Keine SQL-Mappings gefunden');
+function updateSqlUsedMappingDisplay() {
+    const combined = new Map([...sqlStringReplaceMapping, ...sqlMapping]);
+    renderMappingList('sqlUsedMappingDisplay', combined, 'Keine Mappings vorhanden');
 }
 
 function deobfuscateSqlCode() {
@@ -772,9 +784,6 @@ function deobfuscateSqlCode() {
     saveState();
 }
 
-function updateSqlStringReplaceMappingDisplay() {
-    renderMappingList('sqlStringReplaceMappingDisplay', sqlStringReplaceMapping, 'Keine SQL String-Replace-Mappings gefunden');
-}
 
 async function copySqlObfuscated() { await copyToClipboard('sqlObfuscatedCode', showSqlStatus, 'Verschleierter SQL Code'); }
 async function copySqlFinal() { await copyToClipboard('sqlFinalCode', showSqlStatus, 'Finaler SQL Code'); }
@@ -792,8 +801,8 @@ function clearSqlAll() {
     sqlStringReplaceMapping = new Map();
     reverseSqlStringReplaceMapping = new Map();
 
-    ['sqlObfuscatedSection', 'sqlStringReplaceMappingSection', 'sqlMappingSelectionSection',
-        'sqlMappingSection', 'sqlAiResponseSection', 'sqlFinalSection']
+    ['sqlObfuscatedSection', 'sqlUsedMappingSection', 'sqlMappingSelectionSection',
+        'sqlAiResponseSection', 'sqlFinalSection']
         .forEach(id => { document.getElementById(id).style.display = 'none'; });
 
     clearSavedState();
