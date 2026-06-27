@@ -19,9 +19,8 @@ const HIDDEN_DOM = `
   <textarea id="obfuscatedCode"></textarea>
   <textarea id="aiResponse"></textarea>
   <textarea id="finalCode"></textarea>
-  <textarea id="stringReplace1"></textarea>
-  <textarea id="stringReplace2"></textarea>
-  <textarea id="stringReplace3"></textarea>
+  <input id="stringReplaceInput" type="text">
+  <div id="stringReplaceChips"></div>
   <div id="statusMessage"></div>
   <div id="csharpMappingSelectionSection"></div>
   <div id="csharpMappingSelectionContainer"></div>
@@ -34,9 +33,8 @@ const HIDDEN_DOM = `
   <textarea id="sqlObfuscatedCode"></textarea>
   <textarea id="sqlAiResponse"></textarea>
   <textarea id="sqlFinalCode"></textarea>
-  <textarea id="sqlStringReplace1"></textarea>
-  <textarea id="sqlStringReplace2"></textarea>
-  <textarea id="sqlStringReplace3"></textarea>
+  <input id="sqlStringReplaceInput" type="text">
+  <div id="sqlStringReplaceChips"></div>
   <div id="sqlStatusMessage"></div>
   <div id="sqlMappingSelectionSection"></div>
   <div id="sqlMappingSelectionContainer"></div>
@@ -66,9 +64,15 @@ const ACCESSOR = `
   resetCs: () => {
     stringReplaceMapping = new Map(); reverseStringReplaceMapping = new Map(); replacementHistory = [];
     csharpAutoMapping = new Map(); reverseCsharpAutoMapping = new Map(); csharpAutoTypeMap = new Map();
+    csharpReplaceWords.length = 0;
   },
-  resetSql: () => { sqlMapping = new Map(); reverseSqlMapping = new Map(); sqlStringReplaceMapping = new Map(); reverseSqlStringReplaceMapping = new Map(); }
-};`;
+  resetSql: () => {
+    sqlMapping = new Map(); reverseSqlMapping = new Map(); sqlStringReplaceMapping = new Map();
+    reverseSqlStringReplaceMapping = new Map(); sqlReplaceWords.length = 0;
+  }
+};
+;window.__csharpWords = csharpReplaceWords;
+;window.__sqlWords = sqlReplaceWords;`;
 ev(glueSrc + '\n' + ACCESSOR);
 ev('saveState = () => {}; clearSavedState = () => {};');
 win.localStorage.clear();
@@ -88,24 +92,28 @@ function eq(a, b, label) { if (a !== b) throw new Error(`${label || ''} erwartet
 function assert(c, msg) { if (!c) throw new Error(msg || 'Assertion fehlgeschlagen'); }
 
 function resetCsharp() {
-    ['originalCode', 'obfuscatedCode', 'aiResponse', 'finalCode', 'stringReplace1', 'stringReplace2', 'stringReplace3']
+    ['originalCode', 'obfuscatedCode', 'aiResponse', 'finalCode']
         .forEach(id => setVal(id, ''));
     win.__t.resetCs();
     ['csharpMappingSelectionSection', 'obfuscatedSection', 'stringReplaceMappingSection', 'aiResponseSection', 'finalSection']
         .forEach(id => { $(id).style.display = 'none'; });
     $('csharpMappingSelectionContainer').innerHTML = '';
+    const chips = $('stringReplaceChips');
+    if (chips) chips.innerHTML = '';
 }
 function resetCsharpAuto() {
     resetCsharp();
     win.__t.resetCs();
 }
 function resetSql() {
-    ['sqlOriginalCode', 'sqlObfuscatedCode', 'sqlAiResponse', 'sqlFinalCode', 'sqlStringReplace1', 'sqlStringReplace2', 'sqlStringReplace3']
+    ['sqlOriginalCode', 'sqlObfuscatedCode', 'sqlAiResponse', 'sqlFinalCode']
         .forEach(id => setVal(id, ''));
     win.__t.resetSql();
     ['sqlStringReplaceMappingSection', 'sqlMappingSelectionSection', 'sqlMappingSection', 'sqlObfuscatedSection', 'sqlAiResponseSection', 'sqlFinalSection']
         .forEach(id => { $(id).style.display = 'none'; });
     $('sqlMappingSelectionContainer').innerHTML = '';
+    const chips = $('sqlStringReplaceChips');
+    if (chips) chips.innerHTML = '';
 }
 
 const CSHARP_CODE = `public class CustomerService {
@@ -134,9 +142,9 @@ console.log('\n# C# – Analyse + voller Durchlauf');
 (() => {
     resetCsharp();
     setVal('originalCode', CSHARP_CODE);
-    setVal('stringReplace1', 'CustomerService');
-    setVal('stringReplace2', 'GetCustomer');
-    setVal('stringReplace3', 'userId');
+    ev("addChip('CustomerService', window.__csharpWords, 'stringReplaceChips')");
+    ev("addChip('GetCustomer', window.__csharpWords, 'stringReplaceChips')");
+    ev("addChip('userId', window.__csharpWords, 'stringReplaceChips')");
     ev('analyzeCode()');
 
     it('erkennt mindestens 3 Elemente', () => assert(size('stringReplaceMapping') >= 3, `Gefunden: ${size('stringReplaceMapping')}`));
@@ -216,7 +224,7 @@ console.log('\n# C# – Gemischter Workflow: String-Replace + Auto-Analyse');
     resetCsharpAuto();
     const original = 'public class CustomerService { public string GetOrder(int orderId) { return null; } }';
     setVal('originalCode', original);
-    setVal('stringReplace1', 'GetOrder');
+    ev("addChip('GetOrder', window.__csharpWords, 'stringReplaceChips')");
     ev('analyzeCode()');
 
     it('Gemischt: Tabelle enthält Typ "String" (manuell)', () => {
@@ -271,9 +279,9 @@ console.log('\n# C# – Teilauswahl + Abbruchfälle');
 (() => {
     resetCsharp();
     setVal('originalCode', CSHARP_CODE);
-    setVal('stringReplace1', 'CustomerService');
-    setVal('stringReplace2', 'GetCustomer');
-    setVal('stringReplace3', 'userId');
+    ev("addChip('CustomerService', window.__csharpWords, 'stringReplaceChips')");
+    ev("addChip('GetCustomer', window.__csharpWords, 'stringReplaceChips')");
+    ev("addChip('userId', window.__csharpWords, 'stringReplaceChips')");
     ev('analyzeCode()');
     doc.querySelectorAll('.csharp-mapping-checkbox').forEach(cb => cb.checked = false);
     doc.querySelector('.csharp-mapping-checkbox').checked = true;
@@ -295,7 +303,7 @@ console.log('\n# C# – Teilauswahl + Abbruchfälle');
 (() => {
     resetCsharp();
     setVal('originalCode', CSHARP_CODE);
-    setVal('stringReplace1', 'CustomerService');
+    ev("addChip('CustomerService', window.__csharpWords, 'stringReplaceChips')");
     ev('analyzeCode()');
     doc.querySelectorAll('.csharp-mapping-checkbox').forEach(cb => cb.checked = false);
     ev('obfuscateCode()');
@@ -330,9 +338,9 @@ console.log('\n# SQL – String-Replace-Sets');
 (() => {
     resetSql();
     setVal('sqlOriginalCode', SQL_CODE);
-    setVal('sqlStringReplace1', 'Users');
-    setVal('sqlStringReplace2', 'Orders');
-    setVal('sqlStringReplace3', 'UserId');
+    ev("addChip('Users', window.__sqlWords, 'sqlStringReplaceChips')");
+    ev("addChip('Orders', window.__sqlWords, 'sqlStringReplaceChips')");
+    ev("addChip('UserId', window.__sqlWords, 'sqlStringReplaceChips')");
     ev('analyzeSqlCode()');
     it('mind. 3 String-Replace-Mappings', () => assert(size('sqlStringReplaceMapping') >= 3, `${size('sqlStringReplaceMapping')}`));
     it('Users im SR-Mapping', () => assert(has('sqlStringReplaceMapping', 'Users')));
@@ -348,7 +356,7 @@ console.log('\n# Sicherheit & Edge-Cases (DOM)');
 (() => {
     resetCsharp();
     setVal('originalCode', `var x = "<img src=x onerror=alert(1)>";`);
-    setVal('stringReplace1', '<img src=x onerror=alert(1)>');
+    ev("addChip('<img src=x onerror=alert(1)>', window.__csharpWords, 'stringReplaceChips')");
     ev('analyzeCode()');
     it('XSS: kein <img>-Element in der Auswahltabelle', () =>
         assert($('csharpMappingSelectionContainer').querySelector('img') === null, 'img-Element injiziert!'));
@@ -358,7 +366,7 @@ console.log('\n# Sicherheit & Edge-Cases (DOM)');
     resetCsharp();
     const code = `int PRICE = 5;`;
     setVal('originalCode', code);
-    setVal('stringReplace1', 'PRICE');
+    ev("addChip('PRICE', window.__csharpWords, 'stringReplaceChips')");
     ev('analyzeCode()'); ev('obfuscateCode()');
     setVal('aiResponse', $('obfuscatedCode').value);
     ev('deobfuscateCode()');
@@ -369,7 +377,7 @@ console.log('\n# Sicherheit & Edge-Cases (DOM)');
     resetCsharp();
     const code = `note = "STR_PLACEHOLDER_1"; secret = Token;`;
     setVal('originalCode', code);
-    setVal('stringReplace1', 'Token');
+    ev("addChip('Token', window.__csharpWords, 'stringReplaceChips')");
     ev('analyzeCode()'); ev('obfuscateCode()');
     const obf = $('obfuscatedCode').value;
     it('Kollision: echter STR_PLACEHOLDER_1-String bleibt erhalten', () => assert(obf.includes('STR_PLACEHOLDER_1')));
@@ -382,7 +390,7 @@ console.log('\n# Sicherheit & Edge-Cases (DOM)');
     resetCsharp();
     const code = `Username = User.Id;`;
     setVal('originalCode', code);
-    setVal('stringReplace1', 'User');
+    ev("addChip('User', window.__csharpWords, 'stringReplaceChips')");
     ev('analyzeCode()'); ev('obfuscateCode()');
     const obf = $('obfuscatedCode').value;
     it('Teilwort: Username bleibt unzerstört', () => assert(/Username/.test(obf), obf));
