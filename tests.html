@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Obfuscator – Unit Tests</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', monospace;
+            background: #0f0f1a;
+            color: #e0e0f0;
+            padding: 30px;
+            line-height: 1.5;
+        }
+        h1 { color: #667eea; font-size: 1.8em; margin-bottom: 24px; }
+        h2 {
+            color: #a78bfa;
+            font-size: 1.1em;
+            margin: 24px 0 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #2d2d4e;
+        }
+        .test {
+            padding: 6px 12px;
+            margin: 3px 0;
+            border-radius: 5px;
+            font-size: 0.88em;
+        }
+        .pass { background: rgba(72,187,120,0.12); border-left: 3px solid #48bb78; color: #9ae6b4; }
+        .fail { background: rgba(245,101,101,0.12); border-left: 3px solid #f56565; color: #feb2b2; }
+        .summary {
+            margin-top: 30px;
+            padding: 16px 20px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        .all-pass { background: rgba(72,187,120,0.15); color: #68d391; border: 1px solid #48bb78; }
+        .has-fail  { background: rgba(245,101,101,0.15); color: #fc8181; border: 1px solid #f56565; }
+    </style>
+</head>
+<body>
+
+<!-- ── Versteckte App-DOM-Elemente (werden von obfuscator.js benötigt) ── -->
+<div style="display:none">
+    <textarea id="originalCode"></textarea>
+    <textarea id="obfuscatedCode"></textarea>
+    <textarea id="aiResponse"></textarea>
+    <textarea id="finalCode"></textarea>
+    <textarea id="stringReplace1"></textarea>
+    <textarea id="stringReplace2"></textarea>
+    <textarea id="stringReplace3"></textarea>
+    <div id="statusMessage"></div>
+    <div id="csharpMappingSelectionSection"></div>
+    <div id="csharpMappingSelectionContainer"></div>
+    <div id="stringReplaceMappingSection"></div>
+    <div id="stringReplaceMappingDisplay"></div>
+    <div id="obfuscatedSection"></div>
+    <div id="aiResponseSection"></div>
+    <div id="finalSection"></div>
+
+    <textarea id="sqlOriginalCode"></textarea>
+    <textarea id="sqlObfuscatedCode"></textarea>
+    <textarea id="sqlAiResponse"></textarea>
+    <textarea id="sqlFinalCode"></textarea>
+    <textarea id="sqlStringReplace1"></textarea>
+    <textarea id="sqlStringReplace2"></textarea>
+    <textarea id="sqlStringReplace3"></textarea>
+    <div id="sqlStatusMessage"></div>
+    <div id="sqlMappingSelectionSection"></div>
+    <div id="sqlMappingSelectionContainer"></div>
+    <div id="sqlStringReplaceMappingSection"></div>
+    <div id="sqlStringReplaceMappingDisplay"></div>
+    <div id="sqlMappingSection"></div>
+    <div id="sqlMappingDisplay"></div>
+    <div id="sqlObfuscatedSection"></div>
+    <div id="sqlAiResponseSection"></div>
+    <div id="sqlFinalSection"></div>
+</div>
+
+<div id="output"><h1>🧪 Obfuscator Unit Tests</h1></div>
+
+<script src="obfuscator-core.js"></script>
+<script src="obfuscator.js"></script>
+<script>
+    // Kein localStorage-Schreiben während Tests
+    saveState      = () => {};
+    clearSavedState = () => {};
+    localStorage.clear();
+
+    // ── Mini-Testframework ────────────────────────────────────────────────
+    let totalPass = 0, totalFail = 0;
+    const output = document.getElementById('output');
+    let currentSuite = null;
+
+    function describe(name, fn) {
+        const h2 = document.createElement('h2');
+        h2.textContent = name;
+        output.appendChild(h2);
+        const suite = document.createElement('div');
+        output.appendChild(suite);
+        currentSuite = suite;
+        fn();
+        currentSuite = null;
+    }
+
+    function it(name, fn) {
+        let passed = false, msg = '';
+        try { fn(); passed = true; } catch (e) { msg = e.message; }
+        const div = document.createElement('div');
+        div.className = 'test ' + (passed ? 'pass' : 'fail');
+        div.textContent = (passed ? '✅  ' : '❌  ') + name + (msg ? '  —  ' + msg : '');
+        (currentSuite || output).appendChild(div);
+        passed ? totalPass++ : totalFail++;
+    }
+
+    function assert(cond, msg) {
+        if (!cond) throw new Error(msg || 'Assertion fehlgeschlagen');
+    }
+    function assertEquals(a, b, label) {
+        if (a !== b) throw new Error(`${label ? label + ': ' : ''}erwartet "${b}", erhalten "${a}"`);
+    }
+
+    // ── Reset-Hilfsfunktionen ─────────────────────────────────────────────
+    function resetCsharp() {
+        ['originalCode','obfuscatedCode','aiResponse','finalCode',
+         'stringReplace1','stringReplace2','stringReplace3']
+            .forEach(id => { document.getElementById(id).value = ''; });
+        stringReplaceMapping.clear();
+        reverseStringReplaceMapping.clear();
+        replacementHistory = [];
+        ['csharpMappingSelectionSection','obfuscatedSection','stringReplaceMappingSection',
+         'aiResponseSection','finalSection']
+            .forEach(id => { document.getElementById(id).style.display = 'none'; });
+        document.getElementById('csharpMappingSelectionContainer').innerHTML = '';
+    }
+
+    function resetSql() {
+        ['sqlOriginalCode','sqlObfuscatedCode','sqlAiResponse','sqlFinalCode',
+         'sqlStringReplace1','sqlStringReplace2','sqlStringReplace3']
+            .forEach(id => { document.getElementById(id).value = ''; });
+        sqlMapping.clear();
+        reverseSqlMapping.clear();
+        sqlStringReplaceMapping.clear();
+        reverseSqlStringReplaceMapping.clear();
+        ['sqlStringReplaceMappingSection','sqlMappingSelectionSection','sqlMappingSection',
+         'sqlObfuscatedSection','sqlAiResponseSection','sqlFinalSection']
+            .forEach(id => { document.getElementById(id).style.display = 'none'; });
+        document.getElementById('sqlMappingSelectionContainer').innerHTML = '';
+    }
+
+    // ── Testdaten ─────────────────────────────────────────────────────────
+    const CSHARP_CODE =
+`public class CustomerService {
+    private readonly CustomerRepository repository;
+
+    public CustomerService(CustomerRepository repo) {
+        this.repository = repo;
+    }
+
+    public Customer GetCustomer(int userId) {
+        return repository.FindById(userId);
+    }
+
+    public List<Customer> GetAllCustomers() {
+        return repository.GetAll();
+    }
+}`;
+
+    const SQL_CODE =
+`SELECT u.UserId, u.UserName, u.Email
+FROM Users u
+INNER JOIN Orders o ON u.UserId = o.UserId
+WHERE u.IsActive = 1
+ORDER BY u.UserName`;
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  C# TESTS
+    // ════════════════════════════════════════════════════════════════════════
+
+    describe('C# – Analyse mit 3 Replace-Sets', () => {
+        resetCsharp();
+        document.getElementById('originalCode').value = CSHARP_CODE;
+        document.getElementById('stringReplace1').value = 'CustomerService';
+        document.getElementById('stringReplace2').value = 'GetCustomer';
+        document.getElementById('stringReplace3').value = 'userId';
+        analyzeCode();
+
+        it('erkennt mindestens 3 Elemente (eins pro Set)', () => {
+            assert(stringReplaceMapping.size >= 3, `Gefunden: ${stringReplaceMapping.size}`);
+        });
+        it('CustomerService (Set 1) gefunden', () => {
+            assert(stringReplaceMapping.has('CustomerService'));
+        });
+        it('GetCustomer (Set 2) gefunden', () => {
+            assert(stringReplaceMapping.has('GetCustomer'));
+        });
+        it('userId (Set 3) gefunden', () => {
+            assert(stringReplaceMapping.has('userId'));
+        });
+        it('Auswahl-Sektion wird eingeblendet', () => {
+            assertEquals(document.getElementById('csharpMappingSelectionSection').style.display, 'block');
+        });
+        it('Checkbox-Anzahl stimmt mit Mapping-Anzahl überein', () => {
+            const n = document.querySelectorAll('.csharp-mapping-checkbox').length;
+            assertEquals(n, stringReplaceMapping.size, 'Checkbox-Anzahl');
+        });
+        it('alle Checkboxen sind standardmäßig angehakt', () => {
+            const all = document.querySelectorAll('.csharp-mapping-checkbox');
+            const allChecked = Array.from(all).every(cb => cb.checked);
+            assert(allChecked, 'Nicht alle Checkboxen angehakt');
+        });
+    });
+
+    describe('C# – Analyse ohne Replace-Strings', () => {
+        resetCsharp();
+        document.getElementById('originalCode').value = CSHARP_CODE;
+        // Keine Wörter in den Sets → analyzeCode soll abbrechen
+        analyzeCode();
+
+        it('findet keine Mappings', () => {
+            assertEquals(stringReplaceMapping.size, 0, 'stringReplaceMapping.size');
+        });
+        it('Auswahl-Sektion bleibt versteckt', () => {
+            const d = document.getElementById('csharpMappingSelectionSection').style.display;
+            assert(d !== 'block', `display sollte nicht 'block' sein, ist: "${d}"`);
+        });
+        it('keine Checkboxen erzeugt', () => {
+            assertEquals(document.querySelectorAll('.csharp-mapping-checkbox').length, 0);
+        });
+    });
+
+    describe('C# – Vollständiger Durchlauf: alle ausgewählt → Zurückverwandeln', () => {
+        resetCsharp();
+        document.getElementById('originalCode').value = CSHARP_CODE;
+        document.getElementById('stringReplace1').value = 'CustomerService';
+        document.getElementById('stringReplace2').value = 'GetCustomer';
+        document.getElementById('stringReplace3').value = 'userId';
+        analyzeCode();
+        // alle Checkboxen angehakt (Standard) → direkt verschleiern
+        obfuscateCode();
+
+        const obf = document.getElementById('obfuscatedCode').value;
+
+        it('kein originaler Bezeichner mehr im verschleierten Code', () => {
+            assert(!obf.includes('CustomerService'), 'CustomerService noch enthalten');
+            assert(!obf.includes('GetCustomer'),     'GetCustomer noch enthalten');
+            assert(!obf.includes('userId'),          'userId noch enthalten');
+        });
+        it('STR_PLACEHOLDER-Tokens vorhanden', () => {
+            assert(obf.includes('STR_PLACEHOLDER_'), 'Keine Platzhalter im Code');
+        });
+        it('obfuscatedSection sichtbar', () => {
+            assertEquals(document.getElementById('obfuscatedSection').style.display, 'block');
+        });
+        it('aiResponseSection sichtbar', () => {
+            assertEquals(document.getElementById('aiResponseSection').style.display, 'block');
+        });
+        it('stringReplaceMappingSection sichtbar', () => {
+            assertEquals(document.getElementById('stringReplaceMappingSection').style.display, 'block');
+        });
+
+        // ── Zurückverwandeln ──
+        document.getElementById('aiResponse').value = obf;
+        deobfuscateCode();
+        const final = document.getElementById('finalCode').value;
+
+        it('zurückverwandelter Code ist byte-genau identisch mit dem Original', () => {
+            assertEquals(final, CSHARP_CODE, 'Zurückverwandelter Code');
+        });
+        it('finalSection sichtbar', () => {
+            assertEquals(document.getElementById('finalSection').style.display, 'block');
+        });
+    });
+
+    describe('C# – Teilweise Auswahl: nur erste Checkbox → Zurückverwandeln', () => {
+        resetCsharp();
+        document.getElementById('originalCode').value = CSHARP_CODE;
+        document.getElementById('stringReplace1').value = 'CustomerService';
+        document.getElementById('stringReplace2').value = 'GetCustomer';
+        document.getElementById('stringReplace3').value = 'userId';
+        analyzeCode();
+
+        // Alle abwählen, nur erste aktivieren
+        document.querySelectorAll('.csharp-mapping-checkbox').forEach(cb => cb.checked = false);
+        const firstCb = document.querySelector('.csharp-mapping-checkbox');
+        firstCb.checked = true;
+        const selected = firstCb.dataset.original;
+        const others = ['CustomerService','GetCustomer','userId'].filter(w => w !== selected);
+
+        obfuscateCode();
+        const obf = document.getElementById('obfuscatedCode').value;
+
+        it('ausgewähltes Wort ist verschleiert', () => {
+            assert(!obf.includes(selected), `"${selected}" sollte nicht mehr im Code sein`);
+        });
+        it('nicht ausgewählte Wörter sind noch im Code', () => {
+            others.forEach(w => assert(obf.includes(w), `"${w}" sollte noch im Code sein`));
+        });
+        it('stringReplaceMapping enthält genau 1 Eintrag', () => {
+            assertEquals(stringReplaceMapping.size, 1, 'Mapping-Größe');
+        });
+
+        // Zurückverwandeln
+        document.getElementById('aiResponse').value = obf;
+        deobfuscateCode();
+        const final = document.getElementById('finalCode').value;
+
+        it('zurückverwandelter Code stimmt exakt mit Original überein', () => {
+            assertEquals(final, CSHARP_CODE, 'Zurückverwandelter Code');
+        });
+    });
+
+    describe('C# – Keine Checkboxen ausgewählt', () => {
+        resetCsharp();
+        document.getElementById('originalCode').value = CSHARP_CODE;
+        document.getElementById('stringReplace1').value = 'CustomerService';
+        analyzeCode();
+        document.querySelectorAll('.csharp-mapping-checkbox').forEach(cb => cb.checked = false);
+        obfuscateCode();
+
+        it('obfuscatedCode bleibt leer', () => {
+            assertEquals(document.getElementById('obfuscatedCode').value, '', 'obfuscatedCode');
+        });
+        it('obfuscatedSection bleibt versteckt', () => {
+            assert(document.getElementById('obfuscatedSection').style.display !== 'block');
+        });
+        it('aiResponseSection bleibt versteckt', () => {
+            assert(document.getElementById('aiResponseSection').style.display !== 'block');
+        });
+    });
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  SQL TESTS
+    // ════════════════════════════════════════════════════════════════════════
+
+    describe('SQL – Analyse ohne String-Replace', () => {
+        resetSql();
+        document.getElementById('sqlOriginalCode').value = SQL_CODE;
+        analyzeSqlCode();
+
+        const cbElements = Array.from(document.querySelectorAll('.sql-mapping-checkbox'))
+            .map(cb => ({ el: cb.dataset.element, type: cb.dataset.type }));
+
+        it('erkennt Tabelle Users', () => {
+            assert(cbElements.some(e => e.el === 'Users'), `Elemente: ${cbElements.map(e=>e.el).join(', ')}`);
+        });
+        it('erkennt Tabelle Orders', () => {
+            assert(cbElements.some(e => e.el === 'Orders'));
+        });
+        it('erkennt Feld UserId', () => {
+            assert(cbElements.some(e => e.el === 'UserId'));
+        });
+        it('erkennt Feld UserName', () => {
+            assert(cbElements.some(e => e.el === 'UserName'));
+        });
+        it('Users wird als Typ "Tabelle" klassifiziert', () => {
+            const entry = cbElements.find(e => e.el === 'Users');
+            assertEquals(entry && entry.type, 'Tabelle', 'Typ von Users');
+        });
+        it('alle Checkboxen standardmäßig angehakt', () => {
+            const all = document.querySelectorAll('.sql-mapping-checkbox');
+            assert(Array.from(all).every(cb => cb.checked), 'Nicht alle angehakt');
+        });
+        it('Auswahl-Sektion wird eingeblendet', () => {
+            assertEquals(document.getElementById('sqlMappingSelectionSection').style.display, 'block');
+        });
+    });
+
+    describe('SQL – Analyse mit 3 String-Replace-Sets', () => {
+        resetSql();
+        document.getElementById('sqlOriginalCode').value = SQL_CODE;
+        document.getElementById('sqlStringReplace1').value = 'Users';
+        document.getElementById('sqlStringReplace2').value = 'Orders';
+        document.getElementById('sqlStringReplace3').value = 'UserId';
+        analyzeSqlCode();
+
+        it('mindestens 3 String-Replace-Mappings befüllt', () => {
+            assert(sqlStringReplaceMapping.size >= 3, `Gefunden: ${sqlStringReplaceMapping.size}`);
+        });
+        it('Users im String-Replace-Mapping (Set 1)', () => {
+            assert(sqlStringReplaceMapping.has('Users'));
+        });
+        it('Orders im String-Replace-Mapping (Set 2)', () => {
+            assert(sqlStringReplaceMapping.has('Orders'));
+        });
+        it('UserId im String-Replace-Mapping (Set 3)', () => {
+            assert(sqlStringReplaceMapping.has('UserId'));
+        });
+        it('String-Replace-Mapping-Sektion sichtbar', () => {
+            assertEquals(document.getElementById('sqlStringReplaceMappingSection').style.display, 'block');
+        });
+        it('Auswahl-Sektion sichtbar', () => {
+            assertEquals(document.getElementById('sqlMappingSelectionSection').style.display, 'block');
+        });
+    });
+
+    describe('SQL – Vollständiger Durchlauf: alle ausgewählt → Zurückverwandeln', () => {
+        resetSql();
+        document.getElementById('sqlOriginalCode').value = SQL_CODE;
+        analyzeSqlCode();
+        // alle Checkboxen angehakt (Standard) → direkt verschleiern
+        obfuscateSqlCode();
+
+        const obf = document.getElementById('sqlObfuscatedCode').value;
+
+        it('SQL_TABLE- oder SQL_COL-Tokens im verschleierten Code', () => {
+            assert(obf.includes('SQL_TABLE_') || obf.includes('SQL_COL_'), 'Keine SQL-Platzhalter');
+        });
+        it('Users nicht mehr im verschleierten Code', () => {
+            assert(!/\bUsers\b/.test(obf), 'Users noch enthalten');
+        });
+        it('Orders nicht mehr im verschleierten Code', () => {
+            assert(!/\bOrders\b/.test(obf), 'Orders noch enthalten');
+        });
+        it('sqlObfuscatedSection sichtbar', () => {
+            assertEquals(document.getElementById('sqlObfuscatedSection').style.display, 'block');
+        });
+        it('sqlAiResponseSection sichtbar', () => {
+            assertEquals(document.getElementById('sqlAiResponseSection').style.display, 'block');
+        });
+
+        // ── Zurückverwandeln ──
+        document.getElementById('sqlAiResponse').value = obf;
+        deobfuscateSqlCode();
+        const final = document.getElementById('sqlFinalCode').value;
+
+        it('zurückverwandelter SQL ist byte-genau identisch mit dem Original', () => {
+            assertEquals(final, SQL_CODE, 'Zurückverwandelter SQL');
+        });
+        it('sqlFinalSection sichtbar', () => {
+            assertEquals(document.getElementById('sqlFinalSection').style.display, 'block');
+        });
+    });
+
+    describe('SQL – Teilweise Auswahl: nur erster Eintrag', () => {
+        resetSql();
+        document.getElementById('sqlOriginalCode').value = SQL_CODE;
+        analyzeSqlCode();
+
+        document.querySelectorAll('.sql-mapping-checkbox').forEach(cb => cb.checked = false);
+        const firstCb = document.querySelector('.sql-mapping-checkbox');
+        firstCb.checked = true;
+        const selected = firstCb.dataset.element;
+
+        obfuscateSqlCode();
+        const obf = document.getElementById('sqlObfuscatedCode').value;
+
+        it('ausgewähltes SQL-Element ist verschleiert', () => {
+            const rx = new RegExp(`\\b${selected}\\b`);
+            assert(!rx.test(obf), `"${selected}" sollte nicht mehr im Code sein`);
+        });
+        it('sqlMapping enthält genau 1 Eintrag', () => {
+            assertEquals(sqlMapping.size, 1, 'sqlMapping-Größe');
+        });
+        it('sqlObfuscatedSection sichtbar', () => {
+            assertEquals(document.getElementById('sqlObfuscatedSection').style.display, 'block');
+        });
+    });
+
+    describe('SQL – Keine Checkboxen ausgewählt', () => {
+        resetSql();
+        document.getElementById('sqlOriginalCode').value = SQL_CODE;
+        analyzeSqlCode();
+        document.querySelectorAll('.sql-mapping-checkbox').forEach(cb => cb.checked = false);
+        obfuscateSqlCode();
+
+        it('sqlObfuscatedCode bleibt leer', () => {
+            assertEquals(document.getElementById('sqlObfuscatedCode').value, '', 'sqlObfuscatedCode');
+        });
+        it('sqlObfuscatedSection bleibt versteckt', () => {
+            assert(document.getElementById('sqlObfuscatedSection').style.display !== 'block');
+        });
+        it('sqlAiResponseSection bleibt versteckt', () => {
+            assert(document.getElementById('sqlAiResponseSection').style.display !== 'block');
+        });
+    });
+
+    // ── Zusammenfassung ───────────────────────────────────────────────────
+    const summary = document.createElement('div');
+    summary.className = 'summary ' + (totalFail === 0 ? 'all-pass' : 'has-fail');
+    summary.textContent =
+        (totalFail === 0 ? '🎉 ' : '⚠️  ') +
+        `Ergebnis: ${totalPass} bestanden, ${totalFail} fehlgeschlagen` +
+        ` (${totalPass + totalFail} Tests gesamt)`;
+    output.appendChild(summary);
+</script>
+</body>
+</html>

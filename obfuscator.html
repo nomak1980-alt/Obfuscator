@@ -1,337 +1,35 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="de">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>C# Code Obfuscator</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            padding: 30px;
-            backdrop-filter: blur(10px);
-        }
-
-        h1 {
-            text-align: center;
-            color: #333;
-            margin-bottom: 30px;
-            font-size: 2.5em;
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .section {
-            margin-bottom: 30px;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.7);
-            border-radius: 15px;
-            border: 1px solid rgba(102, 126, 234, 0.2);
-        }
-
-        .section h3 {
-            color: #4a5568;
-            margin-bottom: 15px;
-            font-size: 1.3em;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .icon {
-            width: 24px;
-            height: 24px;
-            fill: #667eea;
-        }
-
-        textarea {
-            width: 100%;
-            min-height: 300px;
-            padding: 15px;
-            border: 2px solid #e2e8f0;
-            border-radius: 10px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 14px;
-            line-height: 1.5;
-            resize: vertical;
-            transition: border-color 0.3s ease;
-            background: rgba(255, 255, 255, 0.9);
-        }
-
-        textarea:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .button-group {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            margin: 20px 0;
-            flex-wrap: wrap;
-        }
-
-        button {
-            padding: 12px 25px;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn-primary {
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            color: white;
-        }
-
-        .btn-secondary {
-            background: linear-gradient(45deg, #48bb78, #38a169);
-            color: white;
-        }
-
-        .btn-danger {
-            background: linear-gradient(45deg, #f56565, #e53e3e);
-            color: white;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        .mapping-display {
-            background: rgba(0, 0, 0, 0.05);
-            border-radius: 10px;
-            padding: 15px;
-            max-height: 200px;
-            overflow-y: auto;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 12px;
-            line-height: 1.4;
-        }
-
-        .mapping-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        }
-
-        .mapping-item:last-child {
-            border-bottom: none;
-        }
-
-        .original {
-            color: #e53e3e;
-            font-weight: bold;
-        }
-
-        .obfuscated {
-            color: #38a169;
-            font-weight: bold;
-        }
-
-        .status {
-            text-align: center;
-            padding: 10px;
-            border-radius: 10px;
-            margin: 10px 0;
-            font-weight: 600;
-        }
-
-        .status.success {
-            background: rgba(72, 187, 120, 0.1);
-            color: #38a169;
-            border: 1px solid rgba(72, 187, 120, 0.3);
-        }
-
-        .status.error {
-            background: rgba(245, 101, 101, 0.1);
-            color: #e53e3e;
-            border: 1px solid rgba(245, 101, 101, 0.3);
-        }
-
-        .info-box {
-            background: rgba(66, 153, 225, 0.1);
-            border: 1px solid rgba(66, 153, 225, 0.3);
-            border-radius: 10px;
-            padding: 15px;
-            margin: 20px 0;
-            color: #3182ce;
-        }
-
-        .warning-box {
-            background: rgba(237, 137, 54, 0.1);
-            border: 1px solid rgba(237, 137, 54, 0.4);
-            border-radius: 10px;
-            padding: 12px 15px;
-            margin: 10px 0;
-            color: #c05621;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .stat-item {
-            background: rgba(255, 255, 255, 0.8);
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-            border: 1px solid rgba(102, 126, 234, 0.2);
-        }
-
-        .stat-number {
-            font-size: 24px;
-            font-weight: bold;
-            color: #667eea;
-        }
-
-        .stat-label {
-            color: #718096;
-            margin-top: 5px;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 20px;
-                margin: 10px;
-            }
-
-            h1 {
-                font-size: 2em;
-            }
-
-            .button-group {
-                flex-direction: column;
-            }
-
-            button {
-                width: 100%;
-            }
-        }
-
-        .mapping-selection-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 15px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 14px;
-        }
-
-        .mapping-selection-table th,
-        .mapping-selection-table td {
-            padding: 8px;
-            text-align: left;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        }
-
-        .mapping-selection-table th {
-            background-color: rgba(102, 126, 234, 0.1);
-            font-weight: bold;
-            color: #4a5568;
-        }
-
-        .mapping-selection-table tr:hover {
-            background-color: rgba(102, 126, 234, 0.05);
-        }
-
-        .mapping-selection-table .original {
-            color: #e53e3e;
-        }
-
-        .mapping-selection-table .obfuscated {
-            color: #38a169;
-            font-weight: bold;
-        }
-
-        .tabs {
-            display: flex;
-            margin-bottom: 20px;
-            border-bottom: 2px solid rgba(102, 126, 234, 0.2);
-        }
-
-        .tab {
-            padding: 12px 24px;
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            color: #718096;
-            transition: all 0.3s ease;
-            border-bottom: 3px solid transparent;
-            margin-bottom: -2px;
-        }
-
-        .tab:hover {
-            color: #667eea;
-        }
-
-        .tab.active {
-            color: #667eea;
-            border-bottom-color: #667eea;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-    </style>
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <title>Code Obfuscator – C# &amp; MS SQL</title>
+    <link rel="stylesheet" href="obfuscator.css">
 </head>
 
 <body>
     <div class="container">
         <h1>🔒 Code Obfuscator</h1>
 
-        <div class="tabs">
+        <div class="data-toolbar">
+            <button class="btn-export" data-action="exportState" aria-label="Daten als Backup exportieren">💾 Exportieren</button>
+            <button class="btn-import" data-action="triggerImport" aria-label="Daten aus Backup importieren">📂 Importieren</button>
+            <input type="file" id="importFileInput" accept=".json" style="display: none;" aria-hidden="true">
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="Code-Typ">
             <!-- FIX #6: data-tab Attribute statt nth-child Selektion -->
-            <button class="tab active" data-tab="csharp" onclick="switchTab('csharp')">C# Code</button>
-            <button class="tab" data-tab="mssql" onclick="switchTab('mssql')">MS SQL</button>
+            <button class="tab active" id="tab-csharp" role="tab" aria-selected="true" aria-controls="csharp-tab"
+                data-tab="csharp" data-action="switchTab">C# Code</button>
+            <button class="tab" id="tab-mssql" role="tab" aria-selected="false" aria-controls="mssql-tab" tabindex="-1"
+                data-tab="mssql" data-action="switchTab">MS SQL</button>
         </div>
 
         <!-- C# Tab Content -->
-        <div id="csharp-tab" class="tab-content active">
+        <div id="csharp-tab" class="tab-content active" role="tabpanel" aria-labelledby="tab-csharp">
             <div class="info-box">
                 <strong>Anleitung:</strong> Füge deinen originalen C# Code ein → Trage Wörter für String-Replace ein →
                 Klicke "Analysieren" → Wähle Elemente aus → Klicke "Verschleiern" → Kopiere den verschleierten Code für KI →
@@ -345,7 +43,7 @@
                     </svg>
                     Originaler C# Code
                 </h3>
-                <textarea id="originalCode" placeholder="Füge hier deinen originalen C# Code ein..."></textarea>
+                <textarea id="originalCode" aria-label="Originaler C# Code" placeholder="Füge hier deinen originalen C# Code ein..."></textarea>
             </div>
 
             <div class="section">
@@ -376,11 +74,11 @@
 
             <!-- FIX #10: Analysieren-Button statt direktes Verschleiern -->
             <div class="button-group">
-                <button class="btn-primary" onclick="analyzeCode()">🔍 Code Analysieren</button>
-                <button class="btn-danger" onclick="clearAll()">🗑️ Alles Löschen</button>
+                <button class="btn-primary" data-action="analyzeCode">🔍 Code Analysieren</button>
+                <button class="btn-danger" data-action="clearAll">🗑️ Alles Löschen</button>
             </div>
 
-            <div id="statusMessage"></div>
+            <div id="statusMessage" role="status" aria-live="polite"></div>
 
             <!-- FIX #10: Neue Auswahl-Sektion für C# (wie SQL) -->
             <div class="section" id="csharpMappingSelectionSection" style="display: none;">
@@ -392,7 +90,7 @@
                 </h3>
                 <div id="csharpMappingSelectionContainer"></div>
                 <div class="button-group" style="margin-top: 15px;">
-                    <button class="btn-primary" onclick="obfuscateCode()">🔒 Ausgewählte Elemente Verschleiern</button>
+                    <button class="btn-primary" data-action="obfuscateCode">🔒 Ausgewählte Elemente Verschleiern</button>
                 </div>
             </div>
 
@@ -414,8 +112,8 @@
                     </svg>
                     Verschleierter Code (für KI)
                 </h3>
-                <textarea id="obfuscatedCode" placeholder="Hier erscheint dein verschleierter Code..."></textarea>
-                <button class="btn-secondary" onclick="copyObfuscated()" style="margin-top: 10px;">📋 Code Kopieren</button>
+                <textarea id="obfuscatedCode" aria-label="Verschleierter C# Code" placeholder="Hier erscheint dein verschleierter Code..."></textarea>
+                <button class="btn-secondary" data-action="copyObfuscated" style="margin-top: 10px;">📋 Code Kopieren</button>
             </div>
 
             <div class="section" id="aiResponseSection" style="display: none;">
@@ -426,8 +124,8 @@
                     </svg>
                     KI-Antwort (verschleiert)
                 </h3>
-                <textarea id="aiResponse" placeholder="Füge hier die verschleierte KI-Antwort ein..."></textarea>
-                <button class="btn-primary" onclick="deobfuscateCode()" style="margin-top: 10px;">🔓 Zurückverwandeln</button>
+                <textarea id="aiResponse" aria-label="KI-Antwort (verschleiert)" placeholder="Füge hier die verschleierte KI-Antwort ein..."></textarea>
+                <button class="btn-primary" data-action="deobfuscateCode" style="margin-top: 10px;">🔓 Zurückverwandeln</button>
             </div>
 
             <div class="section" id="finalSection" style="display: none;">
@@ -437,13 +135,13 @@
                     </svg>
                     Finaler Code (mit originalen Namen)
                 </h3>
-                <textarea id="finalCode" placeholder="Hier erscheint dein Code mit den originalen Namen..."></textarea>
-                <button class="btn-secondary" onclick="copyFinal()" style="margin-top: 10px;">📋 Code Kopieren</button>
+                <textarea id="finalCode" aria-label="Finaler C# Code mit originalen Namen" placeholder="Hier erscheint dein Code mit den originalen Namen..."></textarea>
+                <button class="btn-secondary" data-action="copyFinal" style="margin-top: 10px;">📋 Code Kopieren</button>
             </div>
         </div>
 
         <!-- MS SQL Tab Content -->
-        <div id="mssql-tab" class="tab-content">
+        <div id="mssql-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-mssql" hidden>
             <div class="info-box">
                 <strong>Anleitung:</strong> Füge deine originalen SQL Queries ein → Klicke "Analysieren" → Wähle
                 SQL-Elemente aus → Klicke "Verschleiern" → Kopiere den verschleierten Code für KI → Füge KI-Antwort ein → Klicke "Zurückverwandeln"
@@ -456,7 +154,7 @@
                     </svg>
                     Originaler MS SQL Code
                 </h3>
-                <textarea id="sqlOriginalCode" placeholder="Füge hier deine originalen SQL Queries ein..."></textarea>
+                <textarea id="sqlOriginalCode" aria-label="Originaler MS SQL Code" placeholder="Füge hier deine originalen SQL Queries ein..."></textarea>
             </div>
 
             <div class="section">
@@ -486,11 +184,11 @@
             </div>
 
             <div class="button-group">
-                <button class="btn-primary" onclick="analyzeSqlCode()">🔍 SQL Analysieren</button>
-                <button class="btn-danger" onclick="clearSqlAll()">🗑️ Alles Löschen</button>
+                <button class="btn-primary" data-action="analyzeSqlCode">🔍 SQL Analysieren</button>
+                <button class="btn-danger" data-action="clearSqlAll">🗑️ Alles Löschen</button>
             </div>
 
-            <div id="sqlStatusMessage"></div>
+            <div id="sqlStatusMessage" role="status" aria-live="polite"></div>
 
             <div class="section" id="sqlStringReplaceMappingSection" style="display: none;">
                 <h3>
@@ -511,7 +209,7 @@
                 </h3>
                 <div id="sqlMappingSelectionContainer"></div>
                 <div class="button-group" style="margin-top: 15px;">
-                    <button class="btn-primary" onclick="obfuscateSqlCode()">🔒 Ausgewählte SQL-Elemente Verschleiern</button>
+                    <button class="btn-primary" data-action="obfuscateSqlCode">🔒 Ausgewählte SQL-Elemente Verschleiern</button>
                 </div>
             </div>
 
@@ -534,8 +232,8 @@
                     </svg>
                     Verschleierter SQL Code (für KI)
                 </h3>
-                <textarea id="sqlObfuscatedCode" placeholder="Hier erscheint dein verschleierter SQL Code..."></textarea>
-                <button class="btn-secondary" onclick="copySqlObfuscated()" style="margin-top: 10px;">📋 Code Kopieren</button>
+                <textarea id="sqlObfuscatedCode" aria-label="Verschleierter SQL Code" placeholder="Hier erscheint dein verschleierter SQL Code..."></textarea>
+                <button class="btn-secondary" data-action="copySqlObfuscated" style="margin-top: 10px;">📋 Code Kopieren</button>
             </div>
 
             <div class="section" id="sqlAiResponseSection" style="display: none;">
@@ -546,8 +244,8 @@
                     </svg>
                     KI-Antwort (verschleiert)
                 </h3>
-                <textarea id="sqlAiResponse" placeholder="Füge hier die verschleierte KI-Antwort ein..."></textarea>
-                <button class="btn-primary" onclick="deobfuscateSqlCode()" style="margin-top: 10px;">🔓
+                <textarea id="sqlAiResponse" aria-label="KI-Antwort (verschleiert)" placeholder="Füge hier die verschleierte KI-Antwort ein..."></textarea>
+                <button class="btn-primary" data-action="deobfuscateSqlCode" style="margin-top: 10px;">🔓
                     Zurückverwandeln</button>
             </div>
 
@@ -558,1031 +256,17 @@
                     </svg>
                     Finaler SQL Code (mit originalen Namen)
                 </h3>
-                <textarea id="sqlFinalCode" placeholder="Hier erscheint dein SQL Code mit den originalen Namen..."></textarea>
-                <button class="btn-secondary" onclick="copySqlFinal()" style="margin-top: 10px;">📋 Code Kopieren</button>
+                <textarea id="sqlFinalCode" aria-label="Finaler SQL Code mit originalen Namen" placeholder="Hier erscheint dein SQL Code mit den originalen Namen..."></textarea>
+                <button class="btn-secondary" data-action="copySqlFinal" style="margin-top: 10px;">📋 Code Kopieren</button>
             </div>
         </div>
 
         <h4>by Robert Schellenberger</h4>
     </div>
 
-    <script>
-        // ── State ─────────────────────────────────────────────────────────────
-        let stringReplaceMapping = new Map();
-        let reverseStringReplaceMapping = new Map();
-        let replacementHistory = [];
-        let sqlStringReplaceMapping = new Map();
-        let reverseSqlStringReplaceMapping = new Map();
-        let sqlMapping = new Map();
-        let reverseSqlMapping = new Map();
-        let currentTab = 'csharp';
-
-        // FIX #7: Timer-Referenzen für clearTimeout
-        let statusTimer = null;
-        let sqlStatusTimer = null;
-
-        // ── Persistenz (localStorage, JSON) ───────────────────────────────────
-        const STORAGE_KEY = 'obfuscatorAppState_v1';
-        let saveTimer = null;
-        let restoring = false;
-
-        function scheduleSave() {
-            if (restoring) return;
-            clearTimeout(saveTimer);
-            saveTimer = setTimeout(saveState, 300);
-        }
-
-        function captureCsharpSelection() {
-            const rows = document.querySelectorAll('.csharp-mapping-checkbox');
-            if (rows.length === 0) return null;
-            return Array.from(rows).map(cb => ({
-                original: cb.dataset.original,
-                placeholder: cb.dataset.placeholder,
-                checked: cb.checked
-            }));
-        }
-
-        function captureSqlSelection() {
-            const rows = document.querySelectorAll('.sql-mapping-checkbox');
-            if (rows.length === 0) return null;
-            return Array.from(rows).map(cb => {
-                const tr = cb.closest('tr');
-                const cells = tr ? tr.querySelectorAll('td') : [];
-                return {
-                    element: cb.dataset.element,
-                    type: cb.dataset.type,
-                    obfuscated: cells[3] ? cells[3].textContent : '',
-                    checked: cb.checked
-                };
-            });
-        }
-
-        function captureSections(ids) {
-            const out = {};
-            ids.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) out[id] = el.style.display || '';
-            });
-            return out;
-        }
-
-        function saveState() {
-            if (restoring) return;
-            try {
-                const state = {
-                    version: 1,
-                    savedAt: new Date().toISOString(),
-                    currentTab,
-                    csharp: {
-                        originalCode: document.getElementById('originalCode').value,
-                        obfuscatedCode: document.getElementById('obfuscatedCode').value,
-                        aiResponse: document.getElementById('aiResponse').value,
-                        finalCode: document.getElementById('finalCode').value,
-                        stringReplace1: document.getElementById('stringReplace1').value,
-                        stringReplace2: document.getElementById('stringReplace2').value,
-                        stringReplace3: document.getElementById('stringReplace3').value,
-                        stringReplaceMapping: Array.from(stringReplaceMapping.entries()),
-                        reverseStringReplaceMapping: Array.from(reverseStringReplaceMapping.entries()),
-                        replacementHistory: replacementHistory,
-                        selection: captureCsharpSelection(),
-                        sections: captureSections([
-                            'csharpMappingSelectionSection',
-                            'obfuscatedSection',
-                            'stringReplaceMappingSection',
-                            'aiResponseSection',
-                            'finalSection'
-                        ])
-                    },
-                    sql: {
-                        sqlOriginalCode: document.getElementById('sqlOriginalCode').value,
-                        sqlObfuscatedCode: document.getElementById('sqlObfuscatedCode').value,
-                        sqlAiResponse: document.getElementById('sqlAiResponse').value,
-                        sqlFinalCode: document.getElementById('sqlFinalCode').value,
-                        sqlStringReplace1: document.getElementById('sqlStringReplace1').value,
-                        sqlStringReplace2: document.getElementById('sqlStringReplace2').value,
-                        sqlStringReplace3: document.getElementById('sqlStringReplace3').value,
-                        sqlMapping: Array.from(sqlMapping.entries()),
-                        reverseSqlMapping: Array.from(reverseSqlMapping.entries()),
-                        sqlStringReplaceMapping: Array.from(sqlStringReplaceMapping.entries()),
-                        reverseSqlStringReplaceMapping: Array.from(reverseSqlStringReplaceMapping.entries()),
-                        selection: captureSqlSelection(),
-                        sections: captureSections([
-                            'sqlStringReplaceMappingSection',
-                            'sqlMappingSelectionSection',
-                            'sqlMappingSection',
-                            'sqlObfuscatedSection',
-                            'sqlAiResponseSection',
-                            'sqlFinalSection'
-                        ])
-                    }
-                };
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-            } catch (e) {
-                console.warn('Konnte Zustand nicht speichern:', e);
-            }
-        }
-
-        function clearSavedState() {
-            try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
-        }
-
-        function restoreCsharpSelection(selection) {
-            const tempMap = new Map();
-            selection.forEach(s => tempMap.set(s.original, s.placeholder));
-            const previous = stringReplaceMapping;
-            stringReplaceMapping = tempMap;
-            displayCsharpMappingSelection();
-            stringReplaceMapping = previous;
-            document.querySelectorAll('.csharp-mapping-checkbox').forEach(cb => {
-                const item = selection.find(s => s.original === cb.dataset.original);
-                if (item) cb.checked = item.checked;
-            });
-            const selectAll = document.getElementById('csharpSelectAll');
-            if (selectAll) {
-                const all = Array.from(document.querySelectorAll('.csharp-mapping-checkbox'));
-                selectAll.checked = all.length > 0 && all.every(cb => cb.checked);
-            }
-        }
-
-        function restoreSqlSelection(selection) {
-            const potentialMappings = new Map();
-            selection.forEach(s => potentialMappings.set(s.element, { obfuscated: s.obfuscated, type: s.type }));
-            displaySqlMappingSelection(potentialMappings);
-            document.querySelectorAll('.sql-mapping-checkbox').forEach(cb => {
-                const item = selection.find(s => s.element === cb.dataset.element);
-                if (item) cb.checked = item.checked;
-            });
-            const selectAll = document.getElementById('sqlSelectAll');
-            if (selectAll) {
-                const all = Array.from(document.querySelectorAll('.sql-mapping-checkbox'));
-                selectAll.checked = all.length > 0 && all.every(cb => cb.checked);
-            }
-        }
-
-        function applySections(sections) {
-            if (!sections) return;
-            Object.keys(sections).forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.style.display = sections[id] || 'none';
-            });
-        }
-
-        function loadState() {
-            let raw;
-            try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { return; }
-            if (!raw) return;
-            let state;
-            try { state = JSON.parse(raw); } catch (e) { return; }
-            if (!state) return;
-
-            restoring = true;
-            try {
-                if (state.csharp) {
-                    const cs = state.csharp;
-                    document.getElementById('originalCode').value = cs.originalCode || '';
-                    document.getElementById('obfuscatedCode').value = cs.obfuscatedCode || '';
-                    document.getElementById('aiResponse').value = cs.aiResponse || '';
-                    document.getElementById('finalCode').value = cs.finalCode || '';
-                    document.getElementById('stringReplace1').value = cs.stringReplace1 || '';
-                    document.getElementById('stringReplace2').value = cs.stringReplace2 || '';
-                    document.getElementById('stringReplace3').value = cs.stringReplace3 || '';
-
-                    stringReplaceMapping = new Map(cs.stringReplaceMapping || []);
-                    reverseStringReplaceMapping = new Map(cs.reverseStringReplaceMapping || []);
-                    replacementHistory = cs.replacementHistory || [];
-
-                    if (cs.selection && cs.selection.length > 0) {
-                        restoreCsharpSelection(cs.selection);
-                    }
-                    if (stringReplaceMapping.size > 0) {
-                        updateStringReplaceMappingDisplay();
-                    }
-                    applySections(cs.sections);
-                }
-
-                if (state.sql) {
-                    const sq = state.sql;
-                    document.getElementById('sqlOriginalCode').value = sq.sqlOriginalCode || '';
-                    document.getElementById('sqlObfuscatedCode').value = sq.sqlObfuscatedCode || '';
-                    document.getElementById('sqlAiResponse').value = sq.sqlAiResponse || '';
-                    document.getElementById('sqlFinalCode').value = sq.sqlFinalCode || '';
-                    document.getElementById('sqlStringReplace1').value = sq.sqlStringReplace1 || '';
-                    document.getElementById('sqlStringReplace2').value = sq.sqlStringReplace2 || '';
-                    document.getElementById('sqlStringReplace3').value = sq.sqlStringReplace3 || '';
-
-                    sqlMapping = new Map(sq.sqlMapping || []);
-                    reverseSqlMapping = new Map(sq.reverseSqlMapping || []);
-                    sqlStringReplaceMapping = new Map(sq.sqlStringReplaceMapping || []);
-                    reverseSqlStringReplaceMapping = new Map(sq.reverseSqlStringReplaceMapping || []);
-
-                    if (sq.selection && sq.selection.length > 0) {
-                        restoreSqlSelection(sq.selection);
-                    }
-                    if (sqlMapping.size > 0) updateSqlMappingDisplay();
-                    if (sqlStringReplaceMapping.size > 0) updateSqlStringReplaceMappingDisplay();
-                    applySections(sq.sections);
-                }
-
-                if (state.currentTab) switchTab(state.currentTab);
-            } finally {
-                restoring = false;
-            }
-        }
-
-        // ── Hilfsfunktionen ───────────────────────────────────────────────────
-
-        // FIX #4: HTML-Escaping gegen XSS
-        function escapeHtml(str) {
-            return String(str)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
-        }
-
-        function escapeRegex(string) {
-            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        }
-
-        // FIX #6: Tab-Umschaltung per data-tab statt nth-child
-        function switchTab(tab) {
-            document.querySelectorAll('.tab')
-                .forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-            document.querySelectorAll('.tab-content')
-                .forEach(c => c.classList.toggle('active', c.id === tab + '-tab'));
-            currentTab = tab;
-            scheduleSave();
-        }
-
-        // FIX #7: Status-Meldungen mit clearTimeout
-        function showStatus(message, type = 'success') {
-            clearTimeout(statusTimer);
-            const div = document.getElementById('statusMessage');
-            div.className = `status ${type}`;
-            div.textContent = message;
-            statusTimer = setTimeout(() => {
-                div.textContent = '';
-                div.className = '';
-            }, 3000);
-        }
-
-        function showSqlStatus(message, type = 'success') {
-            clearTimeout(sqlStatusTimer);
-            const div = document.getElementById('sqlStatusMessage');
-            div.className = `status ${type}`;
-            div.textContent = message;
-            sqlStatusTimer = setTimeout(() => {
-                div.textContent = '';
-                div.className = '';
-            }, 3000);
-        }
-
-        // ── C# Obfuskierung ───────────────────────────────────────────────────
-
-        // Findet alle Varianten der eingegebenen Wörter im Code (Case-Varianten),
-        // befüllt stringReplaceMapping / reverseStringReplaceMapping / replacementHistory.
-        function applyStringReplace(code) {
-            stringReplaceMapping.clear();
-            reverseStringReplaceMapping.clear();
-            replacementHistory = [];
-
-            let counter = 1;
-            const processedBaseWords = new Set();
-
-            for (let i = 1; i <= 3; i++) {
-                const textarea = document.getElementById(`stringReplace${i}`);
-                const words = textarea.value.split('\n').map(w => w.trim()).filter(w => w.length > 0);
-
-                words.forEach(word => {
-                    const wordLower = word.toLowerCase();
-                    if (processedBaseWords.has(wordLower)) return;
-                    processedBaseWords.add(wordLower);
-
-                    const searchRegex = new RegExp(escapeRegex(word), 'gi');
-                    let match;
-                    while ((match = searchRegex.exec(code)) !== null) {
-                        const variant = match[0];
-                        if (!stringReplaceMapping.has(variant)) {
-                            const placeholder = `STR_PLACEHOLDER_${counter++}`;
-                            stringReplaceMapping.set(variant, placeholder);
-                            reverseStringReplaceMapping.set(placeholder, variant);
-                            replacementHistory.push({ placeholder, original: variant });
-                        }
-                    }
-                });
-            }
-            return code; // Noch kein Ersetzen – nur Analyse
-        }
-
-        // FIX #10: Analysieren-Schritt für C# (wie SQL) – zeigt Auswahl-Tabelle
-        function analyzeCode() {
-            const originalCode = document.getElementById('originalCode').value.trim();
-            if (!originalCode) {
-                showStatus('Bitte füge zuerst deinen C# Code ein!', 'error');
-                return;
-            }
-
-            applyStringReplace(originalCode);
-
-            if (stringReplaceMapping.size === 0) {
-                showStatus('Keine Wörter gefunden. Bitte trage Wörter in den String-Replace Feldern ein.', 'error');
-                return;
-            }
-
-            displayCsharpMappingSelection();
-            document.getElementById('csharpMappingSelectionSection').style.display = 'block';
-            // Vorherige Ergebnisse zurücksetzen
-            document.getElementById('obfuscatedSection').style.display = 'none';
-            document.getElementById('stringReplaceMappingSection').style.display = 'none';
-            document.getElementById('aiResponseSection').style.display = 'none';
-            document.getElementById('finalSection').style.display = 'none';
-
-            showStatus(`${stringReplaceMapping.size} Elemente erkannt. Bitte Auswahl treffen und "Verschleiern" klicken.`);
-            saveState();
-        }
-
-        function displayCsharpMappingSelection() {
-            const container = document.getElementById('csharpMappingSelectionContainer');
-            container.innerHTML = '';
-
-            const table = document.createElement('table');
-            table.className = 'mapping-selection-table';
-
-            const thead = document.createElement('thead');
-            const headerRow = document.createElement('tr');
-            headerRow.innerHTML = `
-                <th style="width: 50px;"><input type="checkbox" id="csharpSelectAll" checked></th>
-                <th>Original</th>
-                <th>Platzhalter</th>
-            `;
-            thead.appendChild(headerRow);
-            table.appendChild(thead);
-
-            const tbody = document.createElement('tbody');
-            // FIX #4: escapeHtml für alle User-Inputs
-            stringReplaceMapping.forEach((placeholder, original) => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td><input type="checkbox" class="csharp-mapping-checkbox" data-original="${escapeHtml(original)}" data-placeholder="${escapeHtml(placeholder)}" checked></td>
-                    <td class="original">${escapeHtml(original)}</td>
-                    <td class="obfuscated">${escapeHtml(placeholder)}</td>
-                `;
-                tbody.appendChild(row);
-            });
-            table.appendChild(tbody);
-            container.appendChild(table);
-
-            // Select-All Checkbox
-            document.getElementById('csharpSelectAll').addEventListener('change', function () {
-                document.querySelectorAll('.csharp-mapping-checkbox')
-                    .forEach(cb => cb.checked = this.checked);
-            });
-        }
-
-        // FIX #10: obfuscateCode arbeitet nun auf den ausgewählten Checkboxes
-        function obfuscateCode() {
-            const originalCode = document.getElementById('originalCode').value.trim();
-            if (!originalCode) {
-                showStatus('Bitte füge zuerst deinen C# Code ein!', 'error');
-                return;
-            }
-
-            const selectedCheckboxes = document.querySelectorAll('.csharp-mapping-checkbox:checked');
-            if (selectedCheckboxes.length === 0) {
-                showStatus('Bitte wähle mindestens ein Element aus!', 'error');
-                return;
-            }
-
-            // Rebuild Maps und History nur mit ausgewählten Elementen
-            stringReplaceMapping.clear();
-            reverseStringReplaceMapping.clear();
-            replacementHistory = [];
-
-            selectedCheckboxes.forEach(cb => {
-                const original = cb.dataset.original;
-                const placeholder = cb.dataset.placeholder;
-                stringReplaceMapping.set(original, placeholder);
-                reverseStringReplaceMapping.set(placeholder, original);
-                replacementHistory.push({ placeholder, original });
-            });
-
-            // Längste zuerst ersetzen (vermeidet Teilwort-Fehler)
-            let obfuscatedCode = originalCode;
-            const sortedVariants = Array.from(stringReplaceMapping.keys()).sort((a, b) => b.length - a.length);
-            sortedVariants.forEach(variant => {
-                const placeholder = stringReplaceMapping.get(variant);
-                const regex = new RegExp(escapeRegex(variant), 'g');
-                obfuscatedCode = obfuscatedCode.replace(regex, placeholder);
-            });
-
-            document.getElementById('obfuscatedCode').value = obfuscatedCode;
-            document.getElementById('obfuscatedSection').style.display = 'block';
-            document.getElementById('aiResponseSection').style.display = 'block';
-            document.getElementById('csharpMappingSelectionSection').style.display = 'none';
-
-            updateStringReplaceMappingDisplay();
-            document.getElementById('stringReplaceMappingSection').style.display = 'block';
-            showStatus(`Code erfolgreich verschleiert! ${stringReplaceMapping.size} Wörter ersetzt.`);
-            saveState();
-        }
-
-        function updateStringReplaceMappingDisplay() {
-            const mappingDiv = document.getElementById('stringReplaceMappingDisplay');
-            mappingDiv.innerHTML = '';
-
-            if (stringReplaceMapping.size === 0) {
-                mappingDiv.innerHTML = '<div style="text-align: center; color: #718096; padding: 20px;">Keine String-Replace-Mappings gefunden</div>';
-                return;
-            }
-
-            // FIX #4: escapeHtml
-            stringReplaceMapping.forEach((placeholder, original) => {
-                const item = document.createElement('div');
-                item.className = 'mapping-item';
-                item.innerHTML = `
-                    <span class="original">${escapeHtml(original)}</span>
-                    <span>→</span>
-                    <span class="obfuscated">${escapeHtml(placeholder)}</span>
-                `;
-                mappingDiv.appendChild(item);
-            });
-        }
-
-        function deobfuscateCode() {
-            const aiResponse = document.getElementById('aiResponse').value.trim();
-            if (!aiResponse) {
-                showStatus('Bitte füge zuerst die KI-Antwort ein!', 'error');
-                return;
-            }
-
-            if (replacementHistory.length === 0) {
-                showStatus('Kein Mapping verfügbar! Bitte verschleiere zuerst deinen Code.', 'error');
-                return;
-            }
-
-            let finalCode = aiResponse;
-            for (let i = replacementHistory.length - 1; i >= 0; i--) {
-                const { placeholder, original } = replacementHistory[i];
-                const regex = new RegExp(escapeRegex(placeholder), 'g');
-                finalCode = finalCode.replace(regex, original);
-            }
-
-            document.getElementById('finalCode').value = finalCode;
-            document.getElementById('finalSection').style.display = 'block';
-            showStatus(`Code erfolgreich zurückverwandelt! ${replacementHistory.length} Wörter wiederhergestellt.`);
-            saveState();
-        }
-
-        // FIX #5: Clipboard API statt document.execCommand
-        async function copyObfuscated() {
-            const text = document.getElementById('obfuscatedCode').value;
-            await navigator.clipboard.writeText(text);
-            showStatus('Verschleierter Code kopiert!');
-        }
-
-        async function copyFinal() {
-            const text = document.getElementById('finalCode').value;
-            await navigator.clipboard.writeText(text);
-            showStatus('Finaler Code kopiert!');
-        }
-
-        function clearAll() {
-            if (confirm('Alle Daten löschen? Das Mapping geht verloren!')) {
-                document.getElementById('originalCode').value = '';
-                document.getElementById('obfuscatedCode').value = '';
-                document.getElementById('aiResponse').value = '';
-                document.getElementById('finalCode').value = '';
-                document.getElementById('stringReplace1').value = '';
-                document.getElementById('stringReplace2').value = '';
-                document.getElementById('stringReplace3').value = '';
-
-                stringReplaceMapping.clear();
-                reverseStringReplaceMapping.clear();
-                replacementHistory = [];
-
-                document.getElementById('csharpMappingSelectionSection').style.display = 'none';
-                document.getElementById('obfuscatedSection').style.display = 'none';
-                document.getElementById('stringReplaceMappingSection').style.display = 'none';
-                document.getElementById('aiResponseSection').style.display = 'none';
-                document.getElementById('finalSection').style.display = 'none';
-
-                clearSavedState();
-                showStatus('Alle Daten gelöscht!');
-            }
-        }
-
-
-        // ── SQL Obfuskierung ──────────────────────────────────────────────────
-
-        // Realer String-Replace mit Seiteneffekt auf globale Maps (nur in obfuscateSqlCode aufrufen)
-        function applySqlStringReplace(code) {
-            sqlStringReplaceMapping.clear();
-            reverseSqlStringReplaceMapping.clear();
-
-            let processedCode = code;
-            let counter = 1;
-
-            for (let i = 1; i <= 3; i++) {
-                const textarea = document.getElementById(`sqlStringReplace${i}`);
-                const words = textarea.value.split('\n').map(w => w.trim()).filter(w => w.length > 0);
-
-                words.forEach(word => {
-                    if (!sqlStringReplaceMapping.has(word)) {
-                        const placeholder = `SQL_STR_PLACEHOLDER_${counter++}`;
-                        sqlStringReplaceMapping.set(word, placeholder);
-                        reverseSqlStringReplaceMapping.set(placeholder, word);
-                        const regex = new RegExp(escapeRegex(word), 'g');
-                        processedCode = processedCode.replace(regex, placeholder);
-                    }
-                });
-            }
-            return processedCode;
-        }
-
-        function analyzeSqlCode() {
-            const originalCode = document.getElementById('sqlOriginalCode').value.trim();
-            if (!originalCode) {
-                showSqlStatus('Bitte füge zuerst deine SQL Queries ein!', 'error');
-                return;
-            }
-
-            sqlMapping.clear();
-            reverseSqlMapping.clear();
-
-            const potentialMappings = analyzeSqlElements(originalCode);
-
-            if (potentialMappings.size > 0 || sqlStringReplaceMapping.size > 0) {
-                const parts = [];
-                if (potentialMappings.size > 0) parts.push(`${potentialMappings.size} SQL-Elemente`);
-                if (sqlStringReplaceMapping.size > 0) parts.push(`${sqlStringReplaceMapping.size} String-Replace-Wörter`);
-                showSqlStatus(`${parts.join(' und ')} erkannt. Bitte Auswahl treffen und "Verschleiern" klicken.`);
-                displaySqlMappingSelection(potentialMappings);
-                // Standardmäßig alles angehakt
-                document.querySelectorAll('.sql-mapping-checkbox').forEach(cb => cb.checked = true);
-                const selectAll = document.getElementById('sqlSelectAll');
-                if (selectAll) selectAll.checked = true;
-            } else {
-                showSqlStatus('Keine SQL-Elemente oder String-Replace-Wörter gefunden.', 'error');
-            }
-            saveState();
-        }
-
-        function analyzeSqlElements(code) {
-            const potentialMappings = new Map();
-            let tableCounter = 1, columnCounter = 1, procCounter = 1, funcCounter = 1, objCounter = 1;
-
-            // String-Replace bereits jetzt anwenden, damit die Mappings sichtbar sind
-            const preProcessedCode = applySqlStringReplace(code);
-
-            // ── Bausteine ────────────────────────────────────────────────
-            // ID: einzelner Bezeichner, optional in eckigen Klammern
-            const ID = '\\[[^\\]]+\\]|[a-zA-Z_][a-zA-Z0-9_]*';
-            // REF: bis zu dreiteilig (db.schema.name)
-            const REF = `(?:${ID})(?:\\.(?:${ID})){0,2}`;
-
-            const stripBr = s => s.replace(/^\[|\]$/g, '').trim();
-            const isSystemSchema = n => /^(dbo|sys|INFORMATION_SCHEMA|guest|master|model|msdb|tempdb)$/i.test(n);
-            const isValidId = n => !!n
-                && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(n)
-                && !isSqlReservedWord(n)
-                && !n.startsWith('SQL_STR_PLACEHOLDER_');
-
-            // Komma-Split mit Beachtung von Klammertiefe (für DECIMAL(10,2) usw.)
-            function splitTopLevelCommas(s) {
-                const parts = [];
-                let depth = 0, current = '';
-                for (let i = 0; i < s.length; i++) {
-                    const ch = s[i];
-                    if (ch === '(') depth++;
-                    else if (ch === ')') depth--;
-                    if (ch === ',' && depth === 0) { parts.push(current); current = ''; }
-                    else current += ch;
-                }
-                if (current.length) parts.push(current);
-                return parts;
-            }
-
-            const foundElements = new Map();
-
-            // Splittet einen REF (z.B. "dbo.Customers" oder "[u].[name]") und registriert
-            // die Bestandteile. lastIsColumn = true → der rechte Teil ist eine Spalte.
-            function pushRef(ref, defaultType, lastIsColumn = false) {
-                if (!ref) return;
-                const parts = ref.split('.').map(stripBr);
-                const last = parts.length - 1;
-                parts.forEach((p, i) => {
-                    if (!isValidId(p)) return;
-                    if (i < last && isSystemSchema(p)) return;
-                    let type;
-                    if (lastIsColumn) type = (i === last) ? 'column' : 'table';
-                    else              type = (i < last) ? 'table' : defaultType;
-                    foundElements.set(p, type);
-                });
-            }
-
-            // Verarbeitet eine kommaseparierte Spaltenliste (SELECT, INSERT(...), SET, ORDER BY, GROUP BY)
-            function pushColumnList(body) {
-                splitTopLevelCommas(body).forEach(part => {
-                    let p = part.trim();
-                    p = p.replace(/\s+AS\s+[\s\S]+$/i, '').trim();
-                    p = p.replace(/\s+(?:ASC|DESC)\b.*$/i, '').trim();
-                    const eq = p.indexOf('=');
-                    if (eq >= 0) p = p.substring(0, eq).trim();
-                    const m = p.match(new RegExp(`^(${REF})`, 'i'));
-                    if (m) pushRef(m[1], 'column', true);
-                });
-            }
-
-            // ── Tabellen-Kontexte ───────────────────────────────────────
-            const tablePatterns = [
-                new RegExp(`\\bFROM\\s+(${REF})`, 'gi'),
-                new RegExp(`\\b(?:(?:INNER|CROSS)\\s+|(?:LEFT|RIGHT|FULL)(?:\\s+OUTER)?\\s+)?JOIN\\s+(${REF})`, 'gi'),
-                new RegExp(`\\bUPDATE\\s+(${REF})`, 'gi'),
-                new RegExp(`\\bINSERT\\s+(?:INTO\\s+)?(${REF})`, 'gi'),
-                new RegExp(`\\bDELETE\\s+(?:FROM\\s+)?(${REF})`, 'gi'),
-                new RegExp(`\\bMERGE\\s+(?:INTO\\s+)?(${REF})`, 'gi'),
-                new RegExp(`\\bUSING\\s+(${REF})`, 'gi'),
-                new RegExp(`\\bINTO\\s+(${REF})`, 'gi'),
-                new RegExp(`\\bCREATE\\s+TABLE\\s+(${REF})`, 'gi'),
-                new RegExp(`\\bALTER\\s+TABLE\\s+(${REF})`, 'gi'),
-                new RegExp(`\\bDROP\\s+TABLE\\s+(${REF})`, 'gi'),
-                new RegExp(`\\bTRUNCATE\\s+TABLE\\s+(${REF})`, 'gi'),
-                new RegExp(`\\bCREATE\\s+(?:UNIQUE\\s+)?(?:CLUSTERED\\s+|NONCLUSTERED\\s+)?INDEX\\s+(?:${ID})\\s+ON\\s+(${REF})`, 'gi'),
-            ];
-            tablePatterns.forEach(rx => {
-                let m;
-                while ((m = rx.exec(preProcessedCode)) !== null) pushRef(m[1], 'table');
-            });
-
-            // CTE: WITH cte AS (
-            const cteRegex = new RegExp(`\\bWITH\\s+(${ID})\\s+AS\\s*\\(`, 'gi');
-            let cte;
-            while ((cte = cteRegex.exec(preProcessedCode)) !== null) {
-                const n = stripBr(cte[1]);
-                if (isValidId(n)) foundElements.set(n, 'object');
-            }
-
-            // CREATE PROCEDURE/FUNCTION/VIEW/TRIGGER
-            const objRegex = new RegExp(`\\bCREATE\\s+(?:OR\\s+ALTER\\s+)?(?:PROCEDURE|PROC|FUNCTION|VIEW|TRIGGER)\\s+(${REF})`, 'gi');
-            let obj;
-            while ((obj = objRegex.exec(preProcessedCode)) !== null) pushRef(obj[1], 'object');
-
-            // Prozedur-Aufrufe
-            const procRegex = new RegExp(`\\bEXEC(?:UTE)?\\s+(${REF})`, 'gi');
-            let proc;
-            while ((proc = procRegex.exec(preProcessedCode)) !== null) pushRef(proc[1], 'procedure');
-
-            // Funktions-Aufrufe in FROM
-            const funcRegex = new RegExp(`\\bFROM\\s+(${REF})\\s*\\(`, 'gi');
-            let fn;
-            while ((fn = funcRegex.exec(preProcessedCode)) !== null) pushRef(fn[1], 'function');
-
-            // ── Spalten-Kontexte ───────────────────────────────────────
-            const selectRegex = /\bSELECT\s+(?:DISTINCT\s+|TOP\s+\d+\s+(?:PERCENT\s+)?)?([\s\S]+?)\s+FROM\b/gi;
-            let sel;
-            while ((sel = selectRegex.exec(preProcessedCode)) !== null) pushColumnList(sel[1]);
-
-            const insertColsRegex = new RegExp(`\\bINSERT\\s+(?:INTO\\s+)?${REF}\\s*\\(([^)]+)\\)`, 'gi');
-            let ic;
-            while ((ic = insertColsRegex.exec(preProcessedCode)) !== null) pushColumnList(ic[1]);
-
-            const ixColsRegex = new RegExp(`\\bCREATE\\s+(?:UNIQUE\\s+)?(?:CLUSTERED\\s+|NONCLUSTERED\\s+)?INDEX\\s+(?:${ID})\\s+ON\\s+${REF}\\s*\\(([^)]+)\\)`, 'gi');
-            let ix;
-            while ((ix = ixColsRegex.exec(preProcessedCode)) !== null) pushColumnList(ix[1]);
-
-            const setRegex = /\bSET\s+([\s\S]+?)(?=\bWHERE\b|\bFROM\b|\bOUTPUT\b|\bORDER\s+BY\b|;|$)/gi;
-            let st;
-            while ((st = setRegex.exec(preProcessedCode)) !== null) pushColumnList(st[1]);
-
-            const orderRegex = /\bORDER\s+BY\s+([\s\S]+?)(?=\bWHERE\b|\bGROUP\s+BY\b|\bHAVING\b|\bUNION\b|\bOFFSET\b|;|$)/gi;
-            let ob;
-            while ((ob = orderRegex.exec(preProcessedCode)) !== null) pushColumnList(ob[1]);
-
-            const groupRegex = /\bGROUP\s+BY\s+([\s\S]+?)(?=\bHAVING\b|\bORDER\s+BY\b|\bUNION\b|;|$)/gi;
-            let gb;
-            while ((gb = groupRegex.exec(preProcessedCode)) !== null) pushColumnList(gb[1]);
-
-            // WHERE/HAVING/AND/OR <col> <op>  (optional führende Klammern)
-            const condOpRegex = new RegExp(`\\b(?:WHERE|HAVING|AND|OR)\\s+\\(*\\s*(${REF})\\s*(?:[=<>!]|LIKE\\b|IN\\b|BETWEEN\\b|IS\\b)`, 'gi');
-            let co;
-            while ((co = condOpRegex.exec(preProcessedCode)) !== null) pushRef(co[1], 'column', true);
-
-            // ON tab.col = tab.col
-            const onRegex = new RegExp(`\\bON\\s+(${REF})\\s*=\\s*(${REF})`, 'gi');
-            let on;
-            while ((on = onRegex.exec(preProcessedCode)) !== null) {
-                pushRef(on[1], 'column', true);
-                pushRef(on[2], 'column', true);
-            }
-
-            // Platzhalter zuweisen
-            foundElements.forEach((type, element) => {
-                if (!potentialMappings.has(element)) {
-                    let placeholder, displayType;
-                    if (type === 'table')         { placeholder = `SQL_TABLE_${tableCounter++}`; displayType = 'Tabelle'; }
-                    else if (type === 'column')   { placeholder = `SQL_COL_${columnCounter++}`;  displayType = 'Feld'; }
-                    else if (type === 'procedure'){ placeholder = `SQL_PROC_${procCounter++}`;   displayType = 'Prozedur'; }
-                    else if (type === 'function') { placeholder = `SQL_FUNC_${funcCounter++}`;   displayType = 'Funktion'; }
-                    else if (type === 'object')   { placeholder = `SQL_OBJ_${objCounter++}`;     displayType = 'Objekt'; }
-                    else                          { placeholder = `SQL_ELEM_${tableCounter++}`;  displayType = 'Element'; }
-                    potentialMappings.set(element, { obfuscated: placeholder, type: displayType });
-                }
-            });
-
-            return potentialMappings;
-        }
-
-        function displaySqlMappingSelection(potentialMappings) {
-            const selectionDiv = document.getElementById('sqlMappingSelectionContainer');
-            selectionDiv.innerHTML = '';
-
-            const table = document.createElement('table');
-            table.className = 'mapping-selection-table';
-
-            const thead = document.createElement('thead');
-            const headerRow = document.createElement('tr');
-            headerRow.innerHTML = `
-                <th style="width: 50px;"><input type="checkbox" id="sqlSelectAll" checked></th>
-                <th>Typ</th>
-                <th>Original</th>
-                <th>Verschleiert</th>
-            `;
-            thead.appendChild(headerRow);
-            table.appendChild(thead);
-
-            const tbody = document.createElement('tbody');
-            const sortedElements = Array.from(potentialMappings.keys()).sort((a, b) => a.localeCompare(b));
-
-            sortedElements.forEach(element => {
-                const mapping = potentialMappings.get(element);
-                const row = document.createElement('tr');
-                // FIX #4: escapeHtml für alle User-Inputs in innerHTML
-                row.innerHTML = `
-                    <td><input type="checkbox" class="sql-mapping-checkbox" data-element="${escapeHtml(element)}" data-type="${escapeHtml(mapping.type)}" checked></td>
-                    <td>${escapeHtml(mapping.type)}</td>
-                    <td class="original">${escapeHtml(element)}</td>
-                    <td class="obfuscated">${escapeHtml(mapping.obfuscated)}</td>
-                `;
-                tbody.appendChild(row);
-            });
-
-            table.appendChild(tbody);
-            selectionDiv.appendChild(table);
-
-            const selectAllCheckbox = document.getElementById('sqlSelectAll');
-            const newSelectAll = selectAllCheckbox.cloneNode(true);
-            selectAllCheckbox.parentNode.replaceChild(newSelectAll, selectAllCheckbox);
-            newSelectAll.addEventListener('change', function () {
-                document.querySelectorAll('.sql-mapping-checkbox')
-                    .forEach(cb => cb.checked = this.checked);
-            });
-
-            document.getElementById('sqlMappingSelectionSection').style.display = 'block';
-            document.getElementById('sqlStringReplaceMappingSection').style.display = 'block';
-            updateSqlStringReplaceMappingDisplay();
-        }
-
-        function isSqlReservedWord(word) {
-            const sqlReserved = [
-                'SELECT', 'FROM', 'WHERE', 'JOIN', 'INNER', 'LEFT', 'RIGHT', 'OUTER', 'CROSS', 'FULL', 'ON',
-                'AND', 'OR', 'NOT', 'IN', 'LIKE', 'BETWEEN', 'IS', 'NULL', 'DISTINCT', 'TOP', 'PERCENT',
-                'ORDER', 'BY', 'GROUP', 'HAVING', 'LIMIT', 'OFFSET', 'UNION', 'ALL', 'EXCEPT', 'INTERSECT',
-                'INSERT', 'UPDATE', 'DELETE', 'MERGE', 'INTO', 'VALUES', 'SET',
-                'CREATE', 'ALTER', 'DROP', 'TRUNCATE', 'TABLE', 'INDEX', 'VIEW', 'SCHEMA', 'DATABASE',
-                'PROCEDURE', 'FUNCTION', 'TRIGGER', 'SEQUENCE', 'TYPE', 'CONSTRAINT', 'PRIMARY', 'KEY',
-                'FOREIGN', 'REFERENCES', 'UNIQUE', 'CHECK', 'DEFAULT', 'IDENTITY', 'COLLATE',
-                'GRANT', 'REVOKE', 'DENY', 'COMMIT', 'ROLLBACK', 'TRANSACTION', 'BEGIN', 'SAVE',
-                'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'CAST', 'CONVERT', 'TRY_CAST', 'TRY_CONVERT',
-                'ISNULL', 'COALESCE', 'NULLIF', 'GETDATE', 'DATEADD', 'DATEDIFF', 'DATEPART',
-                'LEN', 'SUBSTRING', 'CHARINDEX', 'PATINDEX', 'REPLACE', 'STUFF', 'UPPER', 'LOWER',
-                'LTRIM', 'RTRIM', 'TRIM', 'ABS', 'CEILING', 'FLOOR', 'ROUND', 'POWER', 'SQRT',
-                'INT', 'INTEGER', 'BIGINT', 'SMALLINT', 'TINYINT', 'DECIMAL', 'NUMERIC', 'FLOAT',
-                'REAL', 'MONEY', 'SMALLMONEY', 'BIT', 'CHAR', 'VARCHAR', 'NCHAR', 'NVARCHAR',
-                'TEXT', 'NTEXT', 'DATE', 'TIME', 'DATETIME', 'DATETIME2', 'DATETIMEOFFSET',
-                'SMALLDATETIME', 'TIMESTAMP', 'ROWVERSION', 'UNIQUEIDENTIFIER', 'VARBINARY', 'BINARY',
-                'IMAGE', 'XML', 'JSON', 'GEOMETRY', 'GEOGRAPHY', 'HIERARCHYID',
-                'AS', 'ASC', 'DESC', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'IF', 'ELSEIF', 'WHILE',
-                'BREAK', 'CONTINUE', 'DECLARE', 'EXEC', 'EXECUTE', 'RETURN', 'PRINT', 'RAISERROR',
-                'THROW', 'TRY', 'CATCH', 'GO', 'BATCH', 'WITH', 'NOLOCK', 'READPAST', 'UPDLOCK',
-                'ROWLOCK', 'TABLOCK', 'PAGLOCK', 'READCOMMITTED', 'SERIALIZABLE', 'SNAPSHOT',
-                'READUNCOMMITTED', 'REPEATABLEREAD', 'XLOCK', 'FOR', 'UPDATE', 'OF', 'EXISTS',
-                'ANY', 'SOME', 'EVERY', 'OVER', 'PARTITION', 'RANGE', 'ROWS', 'UNBOUNDED', 'PRECEDING',
-                'FOLLOWING', 'CURRENT', 'ROW', 'FIRST', 'LAST', 'CUBE', 'ROLLUP', 'GROUPING'
-            ];
-            return sqlReserved.includes(word.toUpperCase());
-        }
-
-        // FIX #3: applySqlStringReplace wird hier genau einmal aufgerufen
-        function obfuscateSqlCode() {
-            const originalCode = document.getElementById('sqlOriginalCode').value.trim();
-            if (!originalCode) {
-                showSqlStatus('Bitte füge zuerst deine SQL Queries ein!', 'error');
-                return;
-            }
-
-            const selectedCheckboxes = document.querySelectorAll('.sql-mapping-checkbox:checked');
-            if (selectedCheckboxes.length === 0) {
-                showSqlStatus('Bitte wähle mindestens ein Element aus!', 'error');
-                return;
-            }
-
-            // Zähler für Platzhalter-Nummerierung
-            let tableCounter = 1, columnCounter = 1, procCounter = 1, funcCounter = 1, objCounter = 1;
-
-            sqlMapping.clear();
-            reverseSqlMapping.clear();
-
-            selectedCheckboxes.forEach(checkbox => {
-                const element = checkbox.dataset.element;
-                const type = checkbox.dataset.type;
-                let placeholder;
-                if (type === 'Tabelle')       placeholder = `SQL_TABLE_${tableCounter++}`;
-                else if (type === 'Feld')     placeholder = `SQL_COL_${columnCounter++}`;
-                else if (type === 'Prozedur') placeholder = `SQL_PROC_${procCounter++}`;
-                else if (type === 'Funktion') placeholder = `SQL_FUNC_${funcCounter++}`;
-                else if (type === 'Objekt')   placeholder = `SQL_OBJ_${objCounter++}`;
-                else                          placeholder = `SQL_ELEM_${tableCounter++}`;
-
-                sqlMapping.set(element, placeholder);
-                reverseSqlMapping.set(placeholder, element);
-            });
-
-            // Schritt 1: String-Replace (einmalig, befüllt globale Maps)
-            let obfuscatedCode = applySqlStringReplace(originalCode);
-
-            // Schritt 2: SQL-Elemente verschleiern (längste zuerst)
-            const sortedElements = Array.from(sqlMapping.keys()).sort((a, b) => b.length - a.length);
-            sortedElements.forEach(element => {
-                const obfuscated = sqlMapping.get(element);
-                const regex = new RegExp(`\\b${escapeRegex(element)}\\b`, 'g');
-                obfuscatedCode = obfuscatedCode.replace(regex, obfuscated);
-            });
-
-            document.getElementById('sqlObfuscatedCode').value = obfuscatedCode;
-            document.getElementById('sqlObfuscatedSection').style.display = 'block';
-            document.getElementById('sqlAiResponseSection').style.display = 'block';
-            document.getElementById('sqlMappingSection').style.display = 'block';
-
-            updateSqlMappingDisplay();
-            const totalReplaced = sqlMapping.size + sqlStringReplaceMapping.size;
-            showSqlStatus(`SQL Code erfolgreich verschleiert! ${totalReplaced} Elemente ersetzt (${sqlStringReplaceMapping.size} Strings, ${sqlMapping.size} SQL-Elemente).`);
-            saveState();
-        }
-
-        function updateSqlMappingDisplay() {
-            const mappingDiv = document.getElementById('sqlMappingDisplay');
-            mappingDiv.innerHTML = '';
-
-            if (sqlMapping.size === 0) {
-                mappingDiv.innerHTML = '<div style="text-align: center; color: #718096; padding: 20px;">Keine SQL-Mappings gefunden</div>';
-                return;
-            }
-
-            // FIX #4: escapeHtml
-            sqlMapping.forEach((placeholder, original) => {
-                const item = document.createElement('div');
-                item.className = 'mapping-item';
-                item.innerHTML = `
-                    <span class="original">${escapeHtml(original)}</span>
-                    <span>→</span>
-                    <span class="obfuscated">${escapeHtml(placeholder)}</span>
-                `;
-                mappingDiv.appendChild(item);
-            });
-        }
-
-        function deobfuscateSqlCode() {
-            const aiResponse = document.getElementById('sqlAiResponse').value.trim();
-            if (!aiResponse) {
-                showSqlStatus('Bitte füge zuerst die KI-Antwort ein!', 'error');
-                return;
-            }
-
-            if (reverseSqlMapping.size === 0 && reverseSqlStringReplaceMapping.size === 0) {
-                showSqlStatus('Kein Mapping verfügbar! Bitte verschleiere zuerst deinen SQL Code.', 'error');
-                return;
-            }
-
-            let finalCode = aiResponse;
-
-            // Schritt 1: SQL-Elemente zurücktransformieren
-            if (reverseSqlMapping.size > 0) {
-                const sortedPlaceholders = Array.from(reverseSqlMapping.keys()).sort((a, b) => b.length - a.length);
-                sortedPlaceholders.forEach(placeholder => {
-                    const original = reverseSqlMapping.get(placeholder);
-                    const regex = new RegExp(`\\b${escapeRegex(placeholder)}\\b`, 'g');
-                    finalCode = finalCode.replace(regex, original);
-                });
-            }
-
-            // Schritt 2: String-Replace zurücktransformieren
-            if (reverseSqlStringReplaceMapping.size > 0) {
-                const sortedPlaceholders = Array.from(reverseSqlStringReplaceMapping.keys()).sort((a, b) => b.length - a.length);
-                sortedPlaceholders.forEach(placeholder => {
-                    const original = reverseSqlStringReplaceMapping.get(placeholder);
-                    const regex = new RegExp(escapeRegex(placeholder), 'g');
-                    finalCode = finalCode.replace(regex, original);
-                });
-            }
-
-            document.getElementById('sqlFinalCode').value = finalCode;
-            document.getElementById('sqlFinalSection').style.display = 'block';
-            const totalRestored = reverseSqlMapping.size + reverseSqlStringReplaceMapping.size;
-            showSqlStatus(`SQL Code erfolgreich zurückverwandelt! ${totalRestored} Elemente wiederhergestellt.`);
-            saveState();
-        }
-
-        function updateSqlStringReplaceMappingDisplay() {
-            const mappingDiv = document.getElementById('sqlStringReplaceMappingDisplay');
-            mappingDiv.innerHTML = '';
-
-            if (sqlStringReplaceMapping.size === 0) {
-                mappingDiv.innerHTML = '<div style="text-align: center; color: #718096; padding: 20px;">Keine SQL String-Replace-Mappings gefunden</div>';
-                return;
-            }
-
-            // FIX #4: escapeHtml
-            sqlStringReplaceMapping.forEach((placeholder, original) => {
-                const item = document.createElement('div');
-                item.className = 'mapping-item';
-                item.innerHTML = `
-                    <span class="original">${escapeHtml(original)}</span>
-                    <span>→</span>
-                    <span class="obfuscated">${escapeHtml(placeholder)}</span>
-                `;
-                mappingDiv.appendChild(item);
-            });
-        }
-
-        // FIX #5: Clipboard API
-        async function copySqlObfuscated() {
-            const text = document.getElementById('sqlObfuscatedCode').value;
-            await navigator.clipboard.writeText(text);
-            showSqlStatus('Verschleierter SQL Code kopiert!');
-        }
-
-        async function copySqlFinal() {
-            const text = document.getElementById('sqlFinalCode').value;
-            await navigator.clipboard.writeText(text);
-            showSqlStatus('Finaler SQL Code kopiert!');
-        }
-
-        function clearSqlAll() {
-            if (confirm('Alle SQL Daten löschen? Das Mapping geht verloren!')) {
-                document.getElementById('sqlOriginalCode').value = '';
-                document.getElementById('sqlObfuscatedCode').value = '';
-                document.getElementById('sqlAiResponse').value = '';
-                document.getElementById('sqlFinalCode').value = '';
-                document.getElementById('sqlStringReplace1').value = '';
-                document.getElementById('sqlStringReplace2').value = '';
-                document.getElementById('sqlStringReplace3').value = '';
-
-                sqlMapping.clear();
-                reverseSqlMapping.clear();
-                sqlStringReplaceMapping.clear();
-                reverseSqlStringReplaceMapping.clear();
-
-                document.getElementById('sqlObfuscatedSection').style.display = 'none';
-                document.getElementById('sqlStringReplaceMappingSection').style.display = 'none';
-                document.getElementById('sqlMappingSelectionSection').style.display = 'none';
-                document.getElementById('sqlMappingSection').style.display = 'none';
-                document.getElementById('sqlAiResponseSection').style.display = 'none';
-                document.getElementById('sqlFinalSection').style.display = 'none';
-
-                clearSavedState();
-                showSqlStatus('Alle SQL Daten gelöscht!');
-            }
-        }
-
-        // ── Init: Zustand laden und Auto-Save Listener installieren ──────────
-        document.addEventListener('DOMContentLoaded', () => {
-            loadState();
-
-            const watchedInputs = [
-                'originalCode', 'obfuscatedCode', 'aiResponse', 'finalCode',
-                'stringReplace1', 'stringReplace2', 'stringReplace3',
-                'sqlOriginalCode', 'sqlObfuscatedCode', 'sqlAiResponse', 'sqlFinalCode',
-                'sqlStringReplace1', 'sqlStringReplace2', 'sqlStringReplace3'
-            ];
-            watchedInputs.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.addEventListener('input', scheduleSave);
-            });
-
-            // Checkbox-Änderungen in den dynamisch gerenderten Auswahltabellen
-            document.addEventListener('change', (ev) => {
-                if (ev.target && ev.target.matches &&
-                    (ev.target.matches('.csharp-mapping-checkbox') ||
-                     ev.target.matches('.sql-mapping-checkbox') ||
-                     ev.target.id === 'csharpSelectAll' ||
-                     ev.target.id === 'sqlSelectAll')) {
-                    scheduleSave();
-                }
-            });
-        });
-
-    </script>
+    <script src="obfuscator-core.js"></script>
+    <script src="obfuscator.js"></script>
+    
 </body>
 
 </html>

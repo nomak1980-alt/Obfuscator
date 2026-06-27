@@ -1,0 +1,28 @@
+{
+  "name": "obfuscator",
+  "version": "1.0.0",
+  "description": "Eine einfache Web-Anwendung zur Verschleierung von C# und MS SQL Code für die sichere Weitergabe an KI-Modelle.",
+  "main": "obfuscator-core.js",
+  "scripts": {
+    "test": "node test/core.test.js && node test/integration.test.js && node test/smoke.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nomak1980-alt/Obfuscator.git"
+  },
+  "keywords": [
+    "obfuscation",
+    "csharp",
+    "mssql"
+  ],
+  "author": "Robert Schellenberger",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/nomak1980-alt/Obfuscator/issues"
+  },
+  "homepage": "https://github.com/nomak1980-alt/Obfuscator#readme",
+  "devDependencies": {
+    "jsdom": "^29.1.1"
+  }
+}
