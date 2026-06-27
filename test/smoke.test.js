@@ -36,7 +36,7 @@ JSDOM.fromFile(path.join(__dirname, '..', 'obfuscator.html'), {
 
         // 2) Analyse via data-action-Button
         doc.getElementById('originalCode').value = 'class Foo { Bar Baz; }';
-        doc.getElementById('stringReplace1').value = 'Bar';
+        win.eval("addChip('Bar', csharpReplaceWords, 'stringReplaceChips')");
         const analyzeBtn = doc.querySelector('[data-action="analyzeCode"]');
         click(analyzeBtn);
         it('Analyse-Button erzeugt Auswahl-Checkbox', doc.querySelectorAll('.csharp-mapping-checkbox').length > 0);
