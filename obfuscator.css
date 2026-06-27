@@ -133,7 +133,7 @@ button:active {
 }
 
 .mapping-display {
-    background: rgba(0, 0, 0, 0.05);
+    background: #0f0f0f;
     border-radius: 10px;
     padding: 15px;
     max-height: 200px;
@@ -141,13 +141,15 @@ button:active {
     font-family: 'Consolas', 'Monaco', monospace;
     font-size: 12px;
     line-height: 1.4;
+    border: 1px solid #2d2d2d;
+    color: #e0e0e0;
 }
 
 .mapping-item {
     display: flex;
     justify-content: space-between;
     padding: 5px 0;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid #2d2d2d;
 }
 
 .mapping-item:last-child {
@@ -155,12 +157,12 @@ button:active {
 }
 
 .original {
-    color: #c53030;
+    color: #f87171;
     font-weight: bold;
 }
 
 .obfuscated {
-    color: #2f855a;
+    color: #4ade80;
     font-weight: bold;
 }
 
@@ -173,33 +175,33 @@ button:active {
 }
 
 .status.success {
-    background: rgba(72, 187, 120, 0.1);
-    color: #2f855a;
-    border: 1px solid rgba(72, 187, 120, 0.3);
+    background: rgba(13, 123, 194, 0.15);
+    color: #0d7bc2;
+    border: 1px solid rgba(13, 123, 194, 0.3);
 }
 
 .status.error {
-    background: rgba(245, 101, 101, 0.1);
-    color: #c53030;
-    border: 1px solid rgba(245, 101, 101, 0.3);
+    background: rgba(217, 119, 6, 0.15);
+    color: #d97706;
+    border: 1px solid rgba(217, 119, 6, 0.3);
 }
 
 .info-box {
-    background: rgba(66, 153, 225, 0.1);
-    border: 1px solid rgba(66, 153, 225, 0.3);
+    background: rgba(13, 123, 194, 0.1);
+    border: 1px solid rgba(13, 123, 194, 0.3);
     border-radius: 10px;
     padding: 15px;
     margin: 20px 0;
-    color: #2b6cb0;
+    color: #0d7bc2;
 }
 
 .warning-box {
-    background: rgba(237, 137, 54, 0.1);
-    border: 1px solid rgba(237, 137, 54, 0.4);
+    background: rgba(217, 119, 6, 0.1);
+    border: 1px solid rgba(217, 119, 6, 0.4);
     border-radius: 10px;
     padding: 12px 15px;
     margin: 10px 0;
-    color: #c05621;
+    color: #d97706;
     font-size: 14px;
     display: flex;
     align-items: center;
