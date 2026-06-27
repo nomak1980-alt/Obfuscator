@@ -55,20 +55,21 @@ textarea {
     width: 100%;
     min-height: 300px;
     padding: 15px;
-    border: 2px solid #e2e8f0;
+    border: 1px solid #2d2d2d;
     border-radius: 10px;
     font-family: 'Consolas', 'Monaco', monospace;
     font-size: 14px;
     line-height: 1.5;
     resize: vertical;
     transition: border-color 0.3s ease;
-    background: rgba(255, 255, 255, 0.9);
+    background: #0f0f0f;
+    color: #e0e0e0;
 }
 
 textarea:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: #0d7bc2;
+    box-shadow: none;
 }
 
 .button-group {
