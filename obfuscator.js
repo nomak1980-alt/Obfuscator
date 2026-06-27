@@ -321,7 +321,7 @@ function renderMappingList(divId, map, emptyText) {
     if (!div) return;
     div.innerHTML = '';
     if (map.size === 0) {
-        div.innerHTML = `<div style="text-align: center; color: #5a6678; padding: 20px;">${escapeHtml(emptyText)}</div>`;
+        div.innerHTML = `<div class="mapping-empty">${escapeHtml(emptyText)}</div>`;
         return;
     }
     map.forEach((placeholder, original) => {

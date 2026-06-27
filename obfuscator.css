@@ -360,3 +360,9 @@ h4 {
     text-align: center;
     margin-top: 40px;
 }
+
+.mapping-empty {
+    text-align: center;
+    color: #a0a0a0;
+    padding: 20px;
+}
