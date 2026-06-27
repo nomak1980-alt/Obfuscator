@@ -287,7 +287,7 @@ function loadState() {
             }
 
             if (cs.selection && cs.selection.length > 0) restoreCsharpSelection(cs.selection);
-            if (stringReplaceMapping.size > 0) updateStringReplaceMappingDisplay();
+            if (stringReplaceMapping.size > 0 || csharpAutoMapping.size > 0) updateCsharpUsedMappingDisplay();
             applySections(cs.sections);
         }
 
