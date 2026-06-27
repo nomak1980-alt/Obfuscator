@@ -82,16 +82,18 @@ textarea:focus {
 
 button {
     padding: 12px 25px;
-    border: none;
+    border: 1px solid transparent;
     border-radius: 8px;
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.2s ease;
+    transition: box-shadow 150ms ease-in-out;
     text-transform: uppercase;
     letter-spacing: 1px;
     position: relative;
     overflow: hidden;
+    background: transparent;
+    color: white;
 }
 
 button:focus-visible,
@@ -102,34 +104,34 @@ input[type="checkbox"]:focus-visible {
 }
 
 .btn-primary {
-    background: #0d7bc2;
-    color: white;
+    border-color: #0d7bc2;
+    box-shadow: 0 0 40px 40px #0d7bc2 inset, 0 0 0 0 #0d7bc2;
 }
 
 .btn-primary:hover {
-    background: #0e8dd5;
+    box-shadow: 0 0 10px 0 #0d7bc2 inset, 0 0 10px 4px #0d7bc2;
 }
 
 .btn-secondary {
-    background: #d97706;
-    color: white;
+    border-color: #d97706;
+    box-shadow: 0 0 40px 40px #d97706 inset, 0 0 0 0 #d97706;
 }
 
 .btn-secondary:hover {
-    background: #ea8c1a;
+    box-shadow: 0 0 10px 0 #d97706 inset, 0 0 10px 4px #d97706;
 }
 
 .btn-danger {
-    background: #d97706;
-    color: white;
+    border-color: #d97706;
+    box-shadow: 0 0 40px 40px #d97706 inset, 0 0 0 0 #d97706;
 }
 
 .btn-danger:hover {
-    background: #ea8c1a;
+    box-shadow: 0 0 10px 0 #d97706 inset, 0 0 10px 4px #d97706;
 }
 
 button:active {
-    opacity: 0.9;
+    opacity: 0.85;
 }
 
 .mapping-display {
@@ -296,25 +298,25 @@ button:active {
 }
 
 .btn-export {
-    background: #0d7bc2;
-    color: white;
+    border-color: #0d7bc2;
+    box-shadow: 0 0 40px 40px #0d7bc2 inset, 0 0 0 0 #0d7bc2;
     padding: 8px 18px;
     font-size: 14px;
 }
 
 .btn-export:hover {
-    background: #0e8dd5;
+    box-shadow: 0 0 10px 0 #0d7bc2 inset, 0 0 10px 4px #0d7bc2;
 }
 
 .btn-import {
-    background: #d97706;
-    color: white;
+    border-color: #d97706;
+    box-shadow: 0 0 40px 40px #d97706 inset, 0 0 0 0 #d97706;
     padding: 8px 18px;
     font-size: 14px;
 }
 
 .btn-import:hover {
-    background: #ea8c1a;
+    box-shadow: 0 0 10px 0 #d97706 inset, 0 0 10px 4px #d97706;
 }
 
 .tabs {
