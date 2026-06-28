@@ -478,8 +478,13 @@ function analyzeCode() {
     document.getElementById('aiResponse').value = '';
     document.getElementById('finalCode').value = '';
 
-    const total = stringReplaceMapping.size + csharpAutoMapping.size;
-    showStatus(`${total} Elemente erkannt. Bitte Auswahl treffen und "Verschleiern" klicken.`);
+    const strCount = stringReplaceMapping.size;
+    const autoCount = csharpAutoMapping.size;
+    const total = strCount + autoCount;
+    const parts = [];
+    if (strCount > 0) parts.push(`${strCount} String-Replace`);
+    if (autoCount > 0) parts.push(`${autoCount} Auto-Erkannt`);
+    showStatus(`${total} Elemente erkannt (${parts.join(', ')}). Auswahl treffen und "Verschleiern" klicken.`);
     saveState();
 }
 
@@ -663,10 +668,13 @@ function analyzeSqlCode() {
     els.forEach(e => potentialMappings.set(e.element, { obfuscated: e.placeholder, type: e.type }));
 
     if (potentialMappings.size > 0 || sqlStringReplaceMapping.size > 0) {
+        const srCount = sqlStringReplaceMapping.size;
+        const elCount = potentialMappings.size;
+        const total = srCount + elCount;
         const parts = [];
-        if (potentialMappings.size > 0) parts.push(`${potentialMappings.size} SQL-Elemente`);
-        if (sqlStringReplaceMapping.size > 0) parts.push(`${sqlStringReplaceMapping.size} String-Replace-Wörter`);
-        showSqlStatus(`${parts.join(' und ')} erkannt. Bitte Auswahl treffen und "Verschleiern" klicken.`);
+        if (elCount > 0) parts.push(`${elCount} SQL-Elemente`);
+        if (srCount > 0) parts.push(`${srCount} String-Replace`);
+        showSqlStatus(`${total} Elemente erkannt (${parts.join(', ')}). Auswahl treffen und "Verschleiern" klicken.`);
         displaySqlMappingSelection(potentialMappings);
         document.querySelectorAll('.sql-mapping-checkbox').forEach(cb => cb.checked = true);
         const selectAll = document.getElementById('sqlSelectAll');
