@@ -421,6 +421,38 @@ h4 {
     flex-direction: column;
 }
 
+.chip-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.chip-input-row .chip-input-field {
+    flex: 1;
+}
+
+.btn-chip-add {
+    padding: 8px 14px;
+    border: 1px solid #0d7bc2;
+    border-radius: 8px;
+    background: rgba(13, 123, 194, 0.15);
+    color: #0d7bc2;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: 0;
+    flex-shrink: 0;
+    transition: background 0.2s ease;
+    box-shadow: none;
+}
+
+.btn-chip-add:hover {
+    background: rgba(13, 123, 194, 0.3);
+    box-shadow: none;
+}
+
 .chip-input-field {
     width: 100%;
     padding: 8px 12px;

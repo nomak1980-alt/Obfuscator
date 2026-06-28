@@ -61,7 +61,10 @@
                         </span>
                     </h3>
                     <div class="chip-input-wrapper">
-                        <input type="text" id="stringReplaceInput" placeholder="Wort eingeben und Enter drücken…" class="chip-input-field" aria-label="String-Replace Wort hinzufügen">
+                        <div class="chip-input-row">
+                            <input type="text" id="stringReplaceInput" placeholder="Wort eingeben (min. 3 Zeichen)…" class="chip-input-field" aria-label="String-Replace Wort hinzufügen">
+                            <button class="btn-chip-add" data-action="addCsharpChip" type="button" title="Wort hinzufügen">+</button>
+                        </div>
                         <div id="stringReplaceChips" class="chip-container" aria-label="String-Replace Wörter" aria-live="polite"></div>
                     </div>
                 </div>
@@ -176,7 +179,10 @@
                         </span>
                     </h3>
                     <div class="chip-input-wrapper">
-                        <input type="text" id="sqlStringReplaceInput" placeholder="Wort eingeben und Enter drücken…" class="chip-input-field" aria-label="SQL String-Replace Wort hinzufügen">
+                        <div class="chip-input-row">
+                            <input type="text" id="sqlStringReplaceInput" placeholder="Wort eingeben (min. 3 Zeichen)…" class="chip-input-field" aria-label="SQL String-Replace Wort hinzufügen">
+                            <button class="btn-chip-add" data-action="addSqlChip" type="button" title="Wort hinzufügen">+</button>
+                        </div>
                         <div id="sqlStringReplaceChips" class="chip-container" aria-label="SQL String-Replace Wörter" aria-live="polite"></div>
                     </div>
                 </div>

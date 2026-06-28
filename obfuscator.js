@@ -931,7 +931,21 @@ const ACTIONS = {
     exportState, triggerImport: () => document.getElementById('importFileInput').click(),
     switchTab: el => switchTab(el.dataset.tab),
     analyzeCode, clearAll, obfuscateCode, copyObfuscated, deobfuscateCode, copyFinal,
-    analyzeSqlCode, clearSqlAll, obfuscateSqlCode, copySqlObfuscated, deobfuscateSqlCode, copySqlFinal
+    analyzeSqlCode, clearSqlAll, obfuscateSqlCode, copySqlObfuscated, deobfuscateSqlCode, copySqlFinal,
+    addCsharpChip: () => {
+        const input = document.getElementById('stringReplaceInput');
+        const before = csharpReplaceWords.length;
+        addChip(input.value, csharpReplaceWords, 'stringReplaceChips');
+        if (csharpReplaceWords.length > before) input.value = '';
+        input.focus();
+    },
+    addSqlChip: () => {
+        const input = document.getElementById('sqlStringReplaceInput');
+        const before = sqlReplaceWords.length;
+        addChip(input.value, sqlReplaceWords, 'sqlStringReplaceChips');
+        if (sqlReplaceWords.length > before) input.value = '';
+        input.focus();
+    }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
