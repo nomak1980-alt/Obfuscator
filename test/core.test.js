@@ -212,6 +212,17 @@ it('CS_PREFIXES exportiert alle 8 Schlüssel', () => {
     keys.forEach(k => assert(C.CS_PREFIXES[k] !== undefined, 'CS_PREFIXES.' + k + ' fehlt'));
 });
 
+console.log('\n# SQL Alias-Filter');
+it('einbuchstabige Aliases werden nicht als Elemente erkannt', () => {
+    const sql = 'SELECT u.UserId FROM Users u INNER JOIN Orders o ON u.UserId = o.OrderId';
+    const els = C.analyzeSqlElements(sql);
+    const names = els.map(e => e.element);
+    assert(!names.includes('u'), 'u fälschlicherweise erkannt: ' + names.join(', '));
+    assert(!names.includes('o'), 'o fälschlicherweise erkannt: ' + names.join(', '));
+    assert(names.includes('Users'), 'Users fehlt');
+    assert(names.includes('Orders'), 'Orders fehlt');
+});
+
 console.log(`\n──────────────────────────────────────────`);
 console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);
 process.exit(fail ? 1 : 0);

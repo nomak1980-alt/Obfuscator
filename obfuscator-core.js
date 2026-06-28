@@ -244,6 +244,7 @@
         const stripBr = s => s.replace(/^\[|\]$/g, '').trim();
         const isSystemSchema = n => /^(dbo|sys|INFORMATION_SCHEMA|guest|master|model|msdb|tempdb)$/i.test(n);
         const isValidId = n => !!n
+            && n.length >= 2
             && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(n)
             && !isSqlReservedWord(n)
             && !n.startsWith(SQL_STR_PREFIX);
