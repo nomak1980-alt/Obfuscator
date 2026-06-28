@@ -421,6 +421,25 @@ console.log('\n# clearAll() – Cross-Tab-Schutz');
             'SQL-Code in localStorage fehlt nach clearAll()'));
 })();
 
+console.log('\n# Re-Analyse-Schutz');
+(() => {
+    resetCsharp();
+    setVal('originalCode', CSHARP_CODE);
+    ev("addChip('CustomerService', window.__csharpWords, 'stringReplaceChips')");
+    ev('analyzeCode()');
+    ev('obfuscateCode()');
+    const firstObf = $('obfuscatedCode').value;
+
+    win.confirm = () => false;
+    ev("addChip('GetCustomer', window.__csharpWords, 'stringReplaceChips')");
+    ev('analyzeCode()');
+
+    it('Re-Analyse abgebrochen: obfuscatedCode unverändert', () =>
+        eq($('obfuscatedCode').value, firstObf, 'obfuscatedCode sollte unverändert sein'));
+
+    win.confirm = () => true;
+})();
+
 console.log(`\n──────────────────────────────────────────`);
 console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);
 process.exit(fail ? 1 : 0);

@@ -431,6 +431,11 @@ function analyzeCode() {
     }
     if (!confirmLargeInput(originalCode)) return;
 
+    const hasMappings = stringReplaceMapping.size > 0 || csharpAutoMapping.size > 0;
+    if (hasMappings) {
+        if (!confirm('Neu analysieren? Das bisherige Mapping geht verloren und verschleierter Code kann nicht mehr zurückverwandelt werden.')) return;
+    }
+
     // Schritt 1: String-Replace-Analyse (bestehend)
     const strAnalyzed = Core.analyzeCSharp(originalCode, getReplaceWords('stringReplace'));
     stringReplaceMapping = new Map(strAnalyzed.map(e => [e.original, e.placeholder]));
@@ -630,6 +635,11 @@ function analyzeSqlCode() {
         return;
     }
     if (!confirmLargeInput(originalCode)) return;
+
+    const hasMappings = sqlMapping.size > 0 || sqlStringReplaceMapping.size > 0;
+    if (hasMappings) {
+        if (!confirm('Neu analysieren? Das bisherige SQL-Mapping geht verloren.')) return;
+    }
 
     const sr = Core.analyzeSqlStringReplace(getReplaceWords('sqlStringReplace'), originalCode);
     sqlStringReplaceMapping = new Map(sr.entries.map(e => [e.word, e.placeholder]));
