@@ -402,6 +402,25 @@ console.log('\n# Sicherheit & Edge-Cases (DOM)');
     it('Teilwort: Round-Trip identisch', () => eq($('finalCode').value, code));
 })();
 
+console.log('\n# clearAll() – Cross-Tab-Schutz');
+(() => {
+    resetSql();
+    setVal('sqlOriginalCode', SQL_CODE);
+    ev('analyzeSqlCode()');
+    ev('obfuscateSqlCode()');
+    const sqlObf = $('sqlObfuscatedCode').value;
+    // saveState ist gemockt (no-op) – SQL-State manuell in localStorage ablegen
+    const fakeState = JSON.stringify({ version: 1, csharp: { originalCode: 'test' }, sql: { sqlObfuscatedCode: sqlObf } });
+    win.localStorage.setItem('obfuscatorAppState_v1', fakeState);
+    win.confirm = () => true;
+    ev('clearAll()');
+    const raw = win.localStorage.getItem('obfuscatorAppState_v1');
+    const state = raw ? JSON.parse(raw) : null;
+    it('clearAll() löscht nicht den SQL-State', () =>
+        assert(state && state.sql && state.sql.sqlObfuscatedCode === sqlObf,
+            'SQL-Code in localStorage fehlt nach clearAll()'));
+})();
+
 console.log(`\n──────────────────────────────────────────`);
 console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);
 process.exit(fail ? 1 : 0);

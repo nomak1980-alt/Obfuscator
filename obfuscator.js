@@ -198,6 +198,19 @@ function clearSavedState() {
     try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
 }
 
+function clearTabState(tabKey) {
+    let raw;
+    try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { return; }
+    if (!raw) return;
+    let state;
+    try { state = JSON.parse(raw); } catch (e) { return; }
+    if (!state || typeof state !== 'object') return;
+    delete state[tabKey];
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) { /* ignore */ }
+}
+
 function restoreCsharpSelection(selection) {
     const strMap = new Map();
     const autoMap = new Map();
@@ -586,7 +599,7 @@ async function copyObfuscated() { await copyToClipboard('obfuscatedCode', showSt
 async function copyFinal() { await copyToClipboard('finalCode', showStatus, 'Finaler Code'); }
 
 function clearAll() {
-    if (!confirm('Alle Daten löschen? Das Mapping geht verloren!')) return;
+    if (!confirm('C#-Daten löschen? Das Mapping geht verloren!')) return;
     ['originalCode', 'obfuscatedCode', 'aiResponse', 'finalCode']
         .forEach(id => { document.getElementById(id).value = ''; });
     clearChips(csharpReplaceWords, 'stringReplaceChips');
@@ -604,8 +617,8 @@ function clearAll() {
         'aiResponseSection', 'finalSection']
         .forEach(id => { document.getElementById(id).style.display = 'none'; });
 
-    clearSavedState();
-    showStatus('Alle Daten gelöscht!');
+    clearTabState('csharp');
+    showStatus('C#-Daten gelöscht!');
 }
 
 // ── SQL Obfuskierung ────────────────────────────────────────────────────────
@@ -788,7 +801,7 @@ async function copySqlObfuscated() { await copyToClipboard('sqlObfuscatedCode', 
 async function copySqlFinal() { await copyToClipboard('sqlFinalCode', showSqlStatus, 'Finaler SQL Code'); }
 
 function clearSqlAll() {
-    if (!confirm('Alle SQL Daten löschen? Das Mapping geht verloren!')) return;
+    if (!confirm('SQL-Daten löschen? Das Mapping geht verloren!')) return;
     ['sqlOriginalCode', 'sqlObfuscatedCode', 'sqlAiResponse', 'sqlFinalCode']
         .forEach(id => { document.getElementById(id).value = ''; });
     clearChips(sqlReplaceWords, 'sqlStringReplaceChips');
@@ -804,8 +817,8 @@ function clearSqlAll() {
         'sqlAiResponseSection', 'sqlFinalSection']
         .forEach(id => { document.getElementById(id).style.display = 'none'; });
 
-    clearSavedState();
-    showSqlStatus('Alle SQL Daten gelöscht!');
+    clearTabState('sql');
+    showSqlStatus('SQL-Daten gelöscht!');
 }
 
 // ── Export / Import ─────────────────────────────────────────────────────────
