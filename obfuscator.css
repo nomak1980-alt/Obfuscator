@@ -284,6 +284,15 @@ button:active {
     button {
         width: 100%;
     }
+
+    .code-row {
+        grid-template-columns: 1fr;
+    }
+
+    .mapping-selection-table {
+        display: block;
+        overflow-x: auto;
+    }
 }
 
 .mapping-selection-table {
