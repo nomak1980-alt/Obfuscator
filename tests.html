@@ -47,28 +47,29 @@
     <textarea id="obfuscatedCode"></textarea>
     <textarea id="aiResponse"></textarea>
     <textarea id="finalCode"></textarea>
-    <textarea id="stringReplace1"></textarea>
-    <textarea id="stringReplace2"></textarea>
-    <textarea id="stringReplace3"></textarea>
+    <input id="stringReplaceInput" type="text">
+    <div id="stringReplaceChips"></div>
     <div id="statusMessage"></div>
     <div id="csharpMappingSelectionSection"></div>
     <div id="csharpMappingSelectionContainer"></div>
+    <div id="csharpUsedMappingSection"></div>
+    <div id="csharpUsedMappingDisplay"></div>
     <div id="stringReplaceMappingSection"></div>
     <div id="stringReplaceMappingDisplay"></div>
     <div id="obfuscatedSection"></div>
     <div id="aiResponseSection"></div>
     <div id="finalSection"></div>
-
     <textarea id="sqlOriginalCode"></textarea>
     <textarea id="sqlObfuscatedCode"></textarea>
     <textarea id="sqlAiResponse"></textarea>
     <textarea id="sqlFinalCode"></textarea>
-    <textarea id="sqlStringReplace1"></textarea>
-    <textarea id="sqlStringReplace2"></textarea>
-    <textarea id="sqlStringReplace3"></textarea>
+    <input id="sqlStringReplaceInput" type="text">
+    <div id="sqlStringReplaceChips"></div>
     <div id="sqlStatusMessage"></div>
     <div id="sqlMappingSelectionSection"></div>
     <div id="sqlMappingSelectionContainer"></div>
+    <div id="sqlUsedMappingSection"></div>
+    <div id="sqlUsedMappingDisplay"></div>
     <div id="sqlStringReplaceMappingSection"></div>
     <div id="sqlStringReplaceMappingDisplay"></div>
     <div id="sqlMappingSection"></div>
@@ -123,28 +124,33 @@
 
     // ── Reset-Hilfsfunktionen ─────────────────────────────────────────────
     function resetCsharp() {
-        ['originalCode','obfuscatedCode','aiResponse','finalCode',
-         'stringReplace1','stringReplace2','stringReplace3']
+        ['originalCode','obfuscatedCode','aiResponse','finalCode']
             .forEach(id => { document.getElementById(id).value = ''; });
-        stringReplaceMapping.clear();
-        reverseStringReplaceMapping.clear();
+        stringReplaceMapping = new Map();
+        reverseStringReplaceMapping = new Map();
         replacementHistory = [];
-        ['csharpMappingSelectionSection','obfuscatedSection','stringReplaceMappingSection',
-         'aiResponseSection','finalSection']
+        csharpAutoMapping = new Map();
+        reverseCsharpAutoMapping = new Map();
+        csharpAutoTypeMap = new Map();
+        csharpReplaceWords.length = 0;
+        document.getElementById('stringReplaceChips').innerHTML = '';
+        ['csharpMappingSelectionSection','csharpUsedMappingSection','obfuscatedSection',
+         'stringReplaceMappingSection','aiResponseSection','finalSection']
             .forEach(id => { document.getElementById(id).style.display = 'none'; });
         document.getElementById('csharpMappingSelectionContainer').innerHTML = '';
     }
 
     function resetSql() {
-        ['sqlOriginalCode','sqlObfuscatedCode','sqlAiResponse','sqlFinalCode',
-         'sqlStringReplace1','sqlStringReplace2','sqlStringReplace3']
+        ['sqlOriginalCode','sqlObfuscatedCode','sqlAiResponse','sqlFinalCode']
             .forEach(id => { document.getElementById(id).value = ''; });
-        sqlMapping.clear();
-        reverseSqlMapping.clear();
-        sqlStringReplaceMapping.clear();
-        reverseSqlStringReplaceMapping.clear();
-        ['sqlStringReplaceMappingSection','sqlMappingSelectionSection','sqlMappingSection',
-         'sqlObfuscatedSection','sqlAiResponseSection','sqlFinalSection']
+        sqlMapping = new Map();
+        reverseSqlMapping = new Map();
+        sqlStringReplaceMapping = new Map();
+        reverseSqlStringReplaceMapping = new Map();
+        sqlReplaceWords.length = 0;
+        document.getElementById('sqlStringReplaceChips').innerHTML = '';
+        ['sqlStringReplaceMappingSection','sqlUsedMappingSection','sqlMappingSelectionSection',
+         'sqlMappingSection','sqlObfuscatedSection','sqlAiResponseSection','sqlFinalSection']
             .forEach(id => { document.getElementById(id).style.display = 'none'; });
         document.getElementById('sqlMappingSelectionContainer').innerHTML = '';
     }
@@ -178,64 +184,60 @@ ORDER BY u.UserName`;
     //  C# TESTS
     // ════════════════════════════════════════════════════════════════════════
 
-    describe('C# – Analyse mit 3 Replace-Sets', () => {
+    describe('C# – Analyse mit 3 Wörtern', () => {
         resetCsharp();
         document.getElementById('originalCode').value = CSHARP_CODE;
-        document.getElementById('stringReplace1').value = 'CustomerService';
-        document.getElementById('stringReplace2').value = 'GetCustomer';
-        document.getElementById('stringReplace3').value = 'userId';
+        addChip('CustomerService', csharpReplaceWords, 'stringReplaceChips');
+        addChip('GetCustomer', csharpReplaceWords, 'stringReplaceChips');
+        addChip('userId', csharpReplaceWords, 'stringReplaceChips');
         analyzeCode();
 
-        it('erkennt mindestens 3 Elemente (eins pro Set)', () => {
+        it('erkennt mindestens 3 Elemente (String-Replace)', () => {
             assert(stringReplaceMapping.size >= 3, `Gefunden: ${stringReplaceMapping.size}`);
         });
-        it('CustomerService (Set 1) gefunden', () => {
+        it('CustomerService gefunden', () => {
             assert(stringReplaceMapping.has('CustomerService'));
         });
-        it('GetCustomer (Set 2) gefunden', () => {
+        it('GetCustomer gefunden', () => {
             assert(stringReplaceMapping.has('GetCustomer'));
         });
-        it('userId (Set 3) gefunden', () => {
+        it('userId gefunden', () => {
             assert(stringReplaceMapping.has('userId'));
         });
         it('Auswahl-Sektion wird eingeblendet', () => {
             assertEquals(document.getElementById('csharpMappingSelectionSection').style.display, 'block');
         });
         it('Checkbox-Anzahl stimmt mit Mapping-Anzahl überein', () => {
-            const n = document.querySelectorAll('.csharp-mapping-checkbox').length;
-            assertEquals(n, stringReplaceMapping.size, 'Checkbox-Anzahl');
+            const total = stringReplaceMapping.size + csharpAutoMapping.size;
+            assertEquals(document.querySelectorAll('.csharp-mapping-checkbox').length, total, 'Checkbox-Anzahl');
         });
         it('alle Checkboxen sind standardmäßig angehakt', () => {
-            const all = document.querySelectorAll('.csharp-mapping-checkbox');
-            const allChecked = Array.from(all).every(cb => cb.checked);
-            assert(allChecked, 'Nicht alle Checkboxen angehakt');
+            assert(Array.from(document.querySelectorAll('.csharp-mapping-checkbox')).every(cb => cb.checked));
         });
     });
 
-    describe('C# – Analyse ohne Replace-Strings', () => {
+    describe('C# – Analyse ohne Replace-Strings → Auto-Analyse', () => {
         resetCsharp();
         document.getElementById('originalCode').value = CSHARP_CODE;
-        // Keine Wörter in den Sets → analyzeCode soll abbrechen
         analyzeCode();
 
-        it('findet keine Mappings', () => {
+        it('stringReplaceMapping leer', () => {
             assertEquals(stringReplaceMapping.size, 0, 'stringReplaceMapping.size');
         });
-        it('Auswahl-Sektion bleibt versteckt', () => {
-            const d = document.getElementById('csharpMappingSelectionSection').style.display;
-            assert(d !== 'block', `display sollte nicht 'block' sein, ist: "${d}"`);
+        it('Auswahl-Sektion trotzdem sichtbar (Auto-Analyse)', () => {
+            assertEquals(document.getElementById('csharpMappingSelectionSection').style.display, 'block');
         });
-        it('keine Checkboxen erzeugt', () => {
-            assertEquals(document.querySelectorAll('.csharp-mapping-checkbox').length, 0);
+        it('Checkboxen vorhanden (Auto-Mapping)', () => {
+            assert(document.querySelectorAll('.csharp-mapping-checkbox').length > 0, 'keine Checkboxen');
         });
     });
 
     describe('C# – Vollständiger Durchlauf: alle ausgewählt → Zurückverwandeln', () => {
         resetCsharp();
         document.getElementById('originalCode').value = CSHARP_CODE;
-        document.getElementById('stringReplace1').value = 'CustomerService';
-        document.getElementById('stringReplace2').value = 'GetCustomer';
-        document.getElementById('stringReplace3').value = 'userId';
+        addChip('CustomerService', csharpReplaceWords, 'stringReplaceChips');
+        addChip('GetCustomer', csharpReplaceWords, 'stringReplaceChips');
+        addChip('userId', csharpReplaceWords, 'stringReplaceChips');
         analyzeCode();
         // alle Checkboxen angehakt (Standard) → direkt verschleiern
         obfuscateCode();
@@ -276,9 +278,9 @@ ORDER BY u.UserName`;
     describe('C# – Teilweise Auswahl: nur erste Checkbox → Zurückverwandeln', () => {
         resetCsharp();
         document.getElementById('originalCode').value = CSHARP_CODE;
-        document.getElementById('stringReplace1').value = 'CustomerService';
-        document.getElementById('stringReplace2').value = 'GetCustomer';
-        document.getElementById('stringReplace3').value = 'userId';
+        addChip('CustomerService', csharpReplaceWords, 'stringReplaceChips');
+        addChip('GetCustomer', csharpReplaceWords, 'stringReplaceChips');
+        addChip('userId', csharpReplaceWords, 'stringReplaceChips');
         analyzeCode();
 
         // Alle abwählen, nur erste aktivieren
@@ -314,7 +316,7 @@ ORDER BY u.UserName`;
     describe('C# – Keine Checkboxen ausgewählt', () => {
         resetCsharp();
         document.getElementById('originalCode').value = CSHARP_CODE;
-        document.getElementById('stringReplace1').value = 'CustomerService';
+        addChip('CustomerService', csharpReplaceWords, 'stringReplaceChips');
         analyzeCode();
         document.querySelectorAll('.csharp-mapping-checkbox').forEach(cb => cb.checked = false);
         obfuscateCode();
@@ -370,9 +372,9 @@ ORDER BY u.UserName`;
     describe('SQL – Analyse mit 3 String-Replace-Sets', () => {
         resetSql();
         document.getElementById('sqlOriginalCode').value = SQL_CODE;
-        document.getElementById('sqlStringReplace1').value = 'Users';
-        document.getElementById('sqlStringReplace2').value = 'Orders';
-        document.getElementById('sqlStringReplace3').value = 'UserId';
+        addChip('Users', sqlReplaceWords, 'sqlStringReplaceChips');
+        addChip('Orders', sqlReplaceWords, 'sqlStringReplaceChips');
+        addChip('UserId', sqlReplaceWords, 'sqlStringReplaceChips');
         analyzeSqlCode();
 
         it('mindestens 3 String-Replace-Mappings befüllt', () => {
