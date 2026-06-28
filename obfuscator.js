@@ -88,11 +88,11 @@ function renderChip(word, arr, containerId) {
 
 function addChip(word, arr, containerId) {
     const trimmed = word.trim();
-    if (!trimmed || arr.includes(trimmed)) return;
-    if (trimmed.length < 3) {
-        const inputId = containerId === 'stringReplaceChips' ? 'stringReplaceInput'
-                      : containerId === 'sqlStringReplaceChips' ? 'sqlStringReplaceInput'
-                      : null;
+    if (!trimmed) return;
+    const inputId = containerId === 'stringReplaceChips' ? 'stringReplaceInput'
+                  : containerId === 'sqlStringReplaceChips' ? 'sqlStringReplaceInput'
+                  : null;
+    if (arr.includes(trimmed) || trimmed.length < 3) {
         if (inputId) {
             const input = document.getElementById(inputId);
             if (input) {
