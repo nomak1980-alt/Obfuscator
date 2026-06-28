@@ -12,7 +12,7 @@ body {
 }
 
 .container {
-    max-width: 1500px;
+    max-width: 1700px;
     margin: 0 auto;
     background: #1a1a1a;
     border-radius: 20px;
@@ -205,6 +205,20 @@ button:active {
     border-radius: 10px;
     margin: 10px 0;
     font-weight: 600;
+}
+
+/* Toast-Meldungen: festes Overlay unten rechts, verschiebt kein Layout */
+#statusMessage,
+#sqlStatusMessage,
+#globalMessage {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1000;
+    max-width: 420px;
+    min-width: 180px;
+    margin: 0;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
 .status.success {
@@ -426,7 +440,7 @@ h4 {
 
 .code-row {
     display: grid;
-    grid-template-columns: 85fr 15fr;
+    grid-template-columns: 79fr 21fr;
     gap: 20px;
     align-items: start;
     margin-bottom: 30px;
