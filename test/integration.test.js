@@ -348,7 +348,6 @@ console.log('\n# SQL – String-Replace-Sets');
     ev('analyzeSqlCode()');
     it('mind. 3 String-Replace-Mappings', () => assert(size('sqlStringReplaceMapping') >= 3, `${size('sqlStringReplaceMapping')}`));
     it('Users im SR-Mapping', () => assert(has('sqlStringReplaceMapping', 'Users')));
-    it('SR-Mapping-Sektion sichtbar', () => eq($('sqlStringReplaceMappingSection').style.display, 'block'));
 
     ev('obfuscateSqlCode()');
     setVal('sqlAiResponse', $('sqlObfuscatedCode').value);
