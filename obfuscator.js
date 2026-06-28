@@ -864,6 +864,11 @@ function importState(event) {
     const file = event.target.files[0];
     event.target.value = '';
     if (!file) return;
+    const MAX_IMPORT_SIZE = 10 * 1024 * 1024; // 10 MB
+    if (file.size > MAX_IMPORT_SIZE) {
+        notify('Datei zu groß (max. 10 MB). Bitte eine gültige Backup-Datei wählen.', 'error');
+        return;
+    }
     const reader = new FileReader();
     reader.onload = function (e) {
         let state;
