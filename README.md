@@ -9,9 +9,10 @@ Dieser Obfuscator hilft dabei, vertrauliche Bezeichner im Code zu verschleiern, 
 ## 🚀 Funktionen
 
 ### **C# – String-Replace**
-- Du trägst in bis zu 3 Replace-Sets die Wörter ein, die ersetzt werden sollen (ein Wort pro Zeile).
+- Trage Wörter über das Eingabefeld ein und drücke Enter oder klicke `+` (mindestens 3 Zeichen).
 - Alle Schreibvarianten im Code werden als **ganze Wörter** gefunden (`customer`, `Customer`, `CUSTOMER`).
-- Du wählst per Auswahl-Tabelle aus, welche davon tatsächlich verschleiert werden.
+- Wörter in Kommentaren werden ebenfalls durchsucht und ersetzt.
+- Du wählst per Auswahl-Tabelle aus, welche Varianten tatsächlich verschleiert werden.
 
 ### **MS SQL – automatische Elementerkennung**
 - Erkennt Tabellen, Felder, Prozeduren, Funktionen und Objekte über SQL-Syntax (FROM, JOIN, SELECT, ON, …).
@@ -112,8 +113,11 @@ Obfuscator/
 ├── obfuscator.css           # Styles
 ├── obfuscator-core.js       # Reine Obfuskierungslogik (DOM-frei, testbar)
 ├── obfuscator.js            # DOM-/UI-/Persistenz-Schicht
-├── tests.html               # Browser-Testseite
+├── tests.html               # Browser-Testseite (manuelle Tests im Browser)
 ├── test/                    # Node-Tests (core, integration, smoke)
+│   ├── core.test.js         # Logik-Tests (kein DOM)
+│   ├── integration.test.js  # DOM-Schicht via jsdom
+│   └── smoke.test.js        # End-to-End via echte HTML
 ├── package.json             # npm test + Dev-Abhängigkeiten
 └── README.md                # Dokumentation
 ```
@@ -121,9 +125,9 @@ Obfuscator/
 ## 🔮 Zukünftige Erweiterungen
 
 - [x] Import/Export von Mapping-Konfigurationen
+- [x] Dark Mode UI
 - [ ] Unterstützung für weitere Programmiersprachen
 - [ ] Batch-Verarbeitung für mehrere Dateien
-- [ ] Dark Mode UI
 - [ ] Erweiterte Analytik-Statistiken
 
 ## 🤝 Beitrag
