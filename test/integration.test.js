@@ -440,6 +440,22 @@ console.log('\n# Re-Analyse-Schutz');
     win.confirm = () => true;
 })();
 
+console.log('\n# Chip-Mindestlänge');
+(() => {
+    win.__t.resetCs();
+    ev("addChip('ab', window.__csharpWords, 'stringReplaceChips')");
+    it('Chip mit 2 Zeichen wird nicht hinzugefügt', () =>
+        assert(!win.__csharpWords.includes('ab'), 'ab fälschlicherweise in csharpReplaceWords'));
+
+    ev("addChip('a', window.__csharpWords, 'stringReplaceChips')");
+    it('Chip mit 1 Zeichen wird nicht hinzugefügt', () =>
+        assert(!win.__csharpWords.includes('a'), 'a fälschlicherweise in csharpReplaceWords'));
+
+    ev("addChip('abc', window.__csharpWords, 'stringReplaceChips')");
+    it('Chip mit 3 Zeichen wird akzeptiert', () =>
+        assert(win.__csharpWords.includes('abc'), 'abc fehlt in csharpReplaceWords'));
+})();
+
 console.log(`\n──────────────────────────────────────────`);
 console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);
 process.exit(fail ? 1 : 0);

@@ -89,6 +89,19 @@ function renderChip(word, arr, containerId) {
 function addChip(word, arr, containerId) {
     const trimmed = word.trim();
     if (!trimmed || arr.includes(trimmed)) return;
+    if (trimmed.length < 3) {
+        const inputId = containerId === 'stringReplaceChips' ? 'stringReplaceInput'
+                      : containerId === 'sqlStringReplaceChips' ? 'sqlStringReplaceInput'
+                      : null;
+        if (inputId) {
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.style.borderColor = '#dc2626';
+                setTimeout(() => { input.style.borderColor = ''; }, 1200);
+            }
+        }
+        return;
+    }
     arr.push(trimmed);
     renderChip(trimmed, arr, containerId);
     scheduleSave();
@@ -946,8 +959,9 @@ document.addEventListener('DOMContentLoaded', () => {
         csharpChipInput.addEventListener('keydown', (ev) => {
             if (ev.key === 'Enter') {
                 ev.preventDefault();
+                const lenBefore = csharpReplaceWords.length;
                 addChip(csharpChipInput.value, csharpReplaceWords, 'stringReplaceChips');
-                csharpChipInput.value = '';
+                if (csharpReplaceWords.length > lenBefore) csharpChipInput.value = '';
             }
         });
     }
@@ -957,8 +971,9 @@ document.addEventListener('DOMContentLoaded', () => {
         sqlChipInput.addEventListener('keydown', (ev) => {
             if (ev.key === 'Enter') {
                 ev.preventDefault();
+                const lenBefore = sqlReplaceWords.length;
                 addChip(sqlChipInput.value, sqlReplaceWords, 'sqlStringReplaceChips');
-                sqlChipInput.value = '';
+                if (sqlReplaceWords.length > lenBefore) sqlChipInput.value = '';
             }
         });
     }
