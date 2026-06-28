@@ -17,10 +17,11 @@
             <img src="COHeader.jpg" alt="Code Obfuscator" class="header-logo">
             <div class="data-toolbar">
                 <button class="btn-export" data-action="exportState" aria-label="Daten als Backup exportieren">💾 Exportieren</button>
-                <button class="btn-import" data-action="triggerImport" aria-label="Daten aus Backup importieren">📂 Importieren</button>
+                <button class="btn-import" data-action="triggerImport" aria-label="Daten aus Backup importieren" title="JSON-Backup-Datei importieren (.json)">📂 Importieren</button>
                 <input type="file" id="importFileInput" accept=".json" style="display: none;" aria-hidden="true">
             </div>
         </div>
+        <div id="globalMessage" role="alert" aria-live="assertive"></div>
 
         <div class="tabs" role="tablist" aria-label="Code-Typ">
             <!-- FIX #6: data-tab Attribute statt nth-child Selektion -->
@@ -80,7 +81,7 @@
 
             <!-- FIX #10: Neue Auswahl-Sektion für C# (wie SQL) -->
             <div class="section" id="csharpMappingSelectionSection" style="display: none;">
-                <h3 class="collapsible">
+                <h3 class="collapsible" title="Sektion ein-/ausklappen">
                     <span class="h3-title">
                         <svg class="icon" viewBox="0 0 24 24">
                             <path d="M9,5V9H21V5M9,19H21V15H9M9,12H21V10H9M4,9H8V5H4M4,19H8V15H4M4,12H8V10H4V12" />
@@ -152,7 +153,7 @@
         <!-- MS SQL Tab Content -->
         <div id="mssql-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-mssql" hidden>
             <div class="info-box">
-                <strong>Anleitung:</strong> Füge deine originalen SQL Queries ein → Klicke "Analysieren" → Wähle
+                <strong>Anleitung:</strong> Füge deine originalen SQL Queries ein → Optional: Trage Wörter für String-Replace ein (werden vor der Analyse ersetzt) → Klicke "SQL Analysieren" → Wähle
                 SQL-Elemente aus → Klicke "Verschleiern" → Kopiere den verschleierten Code für KI → Füge KI-Antwort ein → Klicke "Zurückverwandeln"
             </div>
 
@@ -196,7 +197,7 @@
             <div id="sqlStatusMessage" role="status" aria-live="polite"></div>
 
             <div class="section" id="sqlMappingSelectionSection" style="display: none;">
-                <h3 class="collapsible">
+                <h3 class="collapsible" title="Sektion ein-/ausklappen">
                     <span class="h3-title">
                         <svg class="icon" viewBox="0 0 24 24">
                             <path d="M9,5V9H21V5M9,19H21V15H9M9,12H21V10H9M4,9H8V5H4M4,19H8V15H4M4,12H8V10H4V12" />
@@ -266,7 +267,7 @@
             </div>
         </div>
 
-        <h4>by Robert Schellenberger</h4>
+        <h4>by Robert Schellenberger <span class="version-badge">v1.0</span></h4>
     </div>
 
     <script src="obfuscator-core.js"></script>

@@ -217,6 +217,7 @@ button:active {
     background: rgba(217, 119, 6, 0.15);
     color: #d97706;
     border: 1px solid rgba(217, 119, 6, 0.3);
+    cursor: pointer;
 }
 
 .info-box {
@@ -405,6 +406,16 @@ h4 {
     color: #a0a0a0;
     text-align: center;
     margin-top: 40px;
+}
+
+.version-badge {
+    font-size: 11px;
+    color: #606060;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    margin-left: 8px;
+    vertical-align: middle;
 }
 
 .mapping-empty {

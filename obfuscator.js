@@ -24,6 +24,7 @@ let sqlReplaceWords = [];
 
 let statusTimer = null;
 let sqlStatusTimer = null;
+let globalTimer = null;
 
 const Core = (typeof ObfuscatorCore !== 'undefined')
     ? ObfuscatorCore
@@ -153,7 +154,7 @@ function captureSections(ids) {
 }
 
 function saveState() {
-    if (restoring) return;
+    if (restoring) return true;
     const state = {
         version: CURRENT_VERSION,
         savedAt: new Date().toISOString(),
@@ -197,6 +198,7 @@ function saveState() {
     };
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        return true;
     } catch (e) {
         // QuotaExceededError o.ä. – dem Nutzer aktiv melden statt still zu schlucken.
         console.warn('Konnte Zustand nicht speichern:', e);
@@ -204,6 +206,7 @@ function saveState() {
         notify(tooBig
             ? 'Automatisches Speichern fehlgeschlagen: Datenmenge zu groß für den Browser-Speicher.'
             : 'Automatisches Speichern fehlgeschlagen.', 'error');
+        return false;
     }
 }
 
@@ -380,9 +383,23 @@ function renderStatus(divId, slot, message, type) {
     clearTimeout(slot.timer);
     div.className = `status ${type}`;
     div.textContent = message;
-    // Fehlermeldungen bleiben länger stehen (Barrierefreiheit / langsames Lesen).
-    const ttl = type === 'error' ? 8000 : 3000;
-    slot.timer = setTimeout(() => { div.textContent = ''; div.className = ''; }, ttl);
+    const dismiss = () => { div.textContent = ''; div.className = ''; div.onclick = null; clearTimeout(slot.timer); };
+    div.onclick = dismiss;
+    // Fehlermeldungen bleiben länger stehen und sind per Klick schließbar.
+    const ttl = type === 'error' ? 15000 : 3000;
+    slot.timer = setTimeout(dismiss, ttl);
+}
+
+function notifyGlobal(message, type = 'success') {
+    const div = document.getElementById('globalMessage');
+    if (!div) return;
+    clearTimeout(globalTimer);
+    div.className = `status ${type}`;
+    div.textContent = message;
+    const dismiss = () => { div.textContent = ''; div.className = ''; div.onclick = null; clearTimeout(globalTimer); };
+    div.onclick = dismiss;
+    const ttl = type === 'error' ? 15000 : 4000;
+    globalTimer = setTimeout(dismiss, ttl);
 }
 
 const _csharpSlot = { get timer() { return statusTimer; }, set timer(v) { statusTimer = v; } };
@@ -421,7 +438,9 @@ function syncSelectAll(selectAllId, checkboxSelector) {
     const selectAll = document.getElementById(selectAllId);
     if (!selectAll) return;
     const all = Array.from(document.querySelectorAll(checkboxSelector));
-    selectAll.checked = all.length > 0 && all.every(cb => cb.checked);
+    const checkedCount = all.filter(cb => cb.checked).length;
+    selectAll.checked = checkedCount === all.length && all.length > 0;
+    selectAll.indeterminate = checkedCount > 0 && checkedCount < all.length;
 }
 
 async function copyToClipboard(sourceId, statusFn, label) {
@@ -470,6 +489,7 @@ function analyzeCode() {
     const csharpSelSec = document.getElementById('csharpMappingSelectionSection');
     csharpSelSec.style.display = 'block';
     csharpSelSec.classList.remove('collapsed');
+    if (csharpSelSec.scrollIntoView) csharpSelSec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     document.getElementById('obfuscatedSection').style.display = 'none';
     document.getElementById('csharpUsedMappingSection').style.display = 'none';
     document.getElementById('aiResponseSection').style.display = 'none';
@@ -639,6 +659,8 @@ function clearAll() {
     ['csharpMappingSelectionSection', 'obfuscatedSection', 'csharpUsedMappingSection',
         'aiResponseSection', 'finalSection']
         .forEach(id => { document.getElementById(id).style.display = 'none'; });
+    const csContainer = document.getElementById('csharpMappingSelectionContainer');
+    if (csContainer) csContainer.innerHTML = '';
 
     clearTabState('csharp');
     showStatus('C#-Daten gelöscht!');
@@ -656,7 +678,7 @@ function analyzeSqlCode() {
 
     const hasMappings = sqlMapping.size > 0 || sqlStringReplaceMapping.size > 0;
     if (hasMappings) {
-        if (!confirm('Neu analysieren? Das bisherige SQL-Mapping geht verloren.')) return;
+        if (!confirm('Neu analysieren? Das bisherige SQL-Mapping geht verloren und verschleierter Code kann nicht mehr zurückverwandelt werden.')) return;
     }
 
     const sr = Core.analyzeSqlStringReplace(getReplaceWords('sqlStringReplace'), originalCode);
@@ -681,6 +703,7 @@ function analyzeSqlCode() {
         if (selectAll) selectAll.checked = true;
     } else {
         showSqlStatus('Keine SQL-Elemente oder String-Replace-Wörter gefunden.', 'error');
+        document.getElementById('sqlMappingSelectionSection').style.display = 'none';
     }
     document.getElementById('sqlObfuscatedSection').style.display = 'none';
     document.getElementById('sqlAiResponseSection').style.display = 'none';
@@ -748,6 +771,7 @@ function displaySqlMappingSelection(potentialMappings) {
     const sqlSelSec = document.getElementById('sqlMappingSelectionSection');
     sqlSelSec.style.display = 'block';
     sqlSelSec.classList.remove('collapsed');
+    if (sqlSelSec.scrollIntoView) sqlSelSec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function obfuscateSqlCode() {
@@ -847,6 +871,8 @@ function clearSqlAll() {
     ['sqlObfuscatedSection', 'sqlUsedMappingSection', 'sqlMappingSelectionSection',
         'sqlAiResponseSection', 'sqlFinalSection']
         .forEach(id => { document.getElementById(id).style.display = 'none'; });
+    const sqlContainer = document.getElementById('sqlMappingSelectionContainer');
+    if (sqlContainer) sqlContainer.innerHTML = '';
 
     clearTabState('sql');
     showSqlStatus('SQL-Daten gelöscht!');
@@ -855,14 +881,14 @@ function clearSqlAll() {
 // ── Export / Import ─────────────────────────────────────────────────────────
 
 function exportState() {
-    saveState();
+    if (!saveState()) return;
     let raw;
     try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { raw = null; }
     if (!raw) {
-        notify('Keine Daten zum Exportieren vorhanden.', 'error');
+        notifyGlobal('Keine Daten zum Exportieren vorhanden.', 'error');
         return;
     }
-    const date = new Date().toISOString().slice(0, 10);
+    const date = new Date().toLocaleDateString('sv'); // YYYY-MM-DD in lokaler Zeitzone
     const blob = new Blob([raw], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -870,6 +896,7 @@ function exportState() {
     a.download = `obfuscator-backup-${date}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    notifyGlobal('Backup erfolgreich exportiert.');
 }
 
 // Prüft, ob ein Wert ein Array aus [string,string]-Paaren ist (Map-Einträge).
@@ -897,7 +924,7 @@ function importState(event) {
     if (!file) return;
     const MAX_IMPORT_SIZE = 10 * 1024 * 1024; // 10 MB
     if (file.size > MAX_IMPORT_SIZE) {
-        notify('Datei zu groß (max. 10 MB). Bitte eine gültige Backup-Datei wählen.', 'error');
+        notifyGlobal('Datei zu groß (max. 10 MB). Bitte eine gültige Backup-Datei wählen.', 'error');
         return;
     }
     const reader = new FileReader();
@@ -906,21 +933,26 @@ function importState(event) {
         try {
             state = JSON.parse(e.target.result);
         } catch (err) {
-            notify('Fehler beim Lesen der Datei: ' + err.message, 'error');
+            notifyGlobal('Fehler beim Lesen der Datei: ' + err.message, 'error');
             return;
         }
         if (!isValidImportState(state)) {
-            notify('Ungültige oder inkompatible Backup-Datei.', 'error');
+            notifyGlobal('Ungültige oder inkompatible Backup-Datei.', 'error');
             return;
         }
+        if (!confirm('Importieren? Der aktuelle Arbeitsstand wird überschrieben.')) return;
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         } catch (err) {
-            notify('Import fehlgeschlagen: Datenmenge zu groß für den Browser-Speicher.', 'error');
+            notifyGlobal('Import fehlgeschlagen: Datenmenge zu groß für den Browser-Speicher.', 'error');
             return;
         }
-        loadState();
-        notify('Daten erfolgreich importiert!');
+        try {
+            loadState();
+            notifyGlobal('Daten erfolgreich importiert!');
+        } catch (err) {
+            notifyGlobal('Fehler beim Laden der importierten Daten: ' + err.message, 'error');
+        }
     };
     reader.readAsText(file);
 }
@@ -979,7 +1011,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const csharpChipInput = document.getElementById('stringReplaceInput');
     if (csharpChipInput) {
         csharpChipInput.addEventListener('keydown', (ev) => {
-            if (ev.key === 'Enter') {
+            if (ev.key === 'Enter' || (ev.key === 'Tab' && csharpChipInput.value.trim().length >= 3)) {
                 ev.preventDefault();
                 const lenBefore = csharpReplaceWords.length;
                 addChip(csharpChipInput.value, csharpReplaceWords, 'stringReplaceChips');
@@ -991,7 +1023,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sqlChipInput = document.getElementById('sqlStringReplaceInput');
     if (sqlChipInput) {
         sqlChipInput.addEventListener('keydown', (ev) => {
-            if (ev.key === 'Enter') {
+            if (ev.key === 'Enter' || (ev.key === 'Tab' && sqlChipInput.value.trim().length >= 3)) {
                 ev.preventDefault();
                 const lenBefore = sqlReplaceWords.length;
                 addChip(sqlChipInput.value, sqlReplaceWords, 'sqlStringReplaceChips');
@@ -1001,11 +1033,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.addEventListener('change', (ev) => {
-        if (ev.target && ev.target.matches &&
-            (ev.target.matches('.csharp-mapping-checkbox') ||
-                ev.target.matches('.sql-mapping-checkbox') ||
-                ev.target.id === 'csharpSelectAll' ||
-                ev.target.id === 'sqlSelectAll')) {
+        if (!ev.target || !ev.target.matches) return;
+        if (ev.target.matches('.csharp-mapping-checkbox')) {
+            syncSelectAll('csharpSelectAll', '.csharp-mapping-checkbox');
+            scheduleSave();
+        } else if (ev.target.matches('.sql-mapping-checkbox')) {
+            syncSelectAll('sqlSelectAll', '.sql-mapping-checkbox');
+            scheduleSave();
+        } else if (ev.target.id === 'csharpSelectAll' || ev.target.id === 'sqlSelectAll') {
             scheduleSave();
         }
     });
