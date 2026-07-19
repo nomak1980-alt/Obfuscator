@@ -8,8 +8,10 @@
  * Korrektheits-/Sicherheitsgarantien dieses Moduls:
  *  - Platzhalter kollidieren nie mit bereits im Code vorhandenen Strings
  *    (deterministischer Salt, siehe uniqueSuffix).
- *  - Ersetzungen erfolgen wortgrenzen-bewusst (kein Teilstring-Treffer wie
- *    "User" innerhalb von "Username").
+ *  - String-Replace-Suchwörter treffen ganze Bezeichner, die das Suchwort
+ *    enthalten ("raum" findet auch SvcRaum/Raumnummer) – ersetzt wird immer
+ *    der komplette Bezeichner, nie ein Teilstück (kein "STR_..._1nummer").
+ *  - Platzhalter-Ersetzungen selbst erfolgen wortgrenzen-bewusst.
  *  - Rück-Ersetzung nutzt Funktions-Replacer → keine $-Sonderzeichen-Injection
  *    ($&, $1, $$ werden literal eingesetzt).
  *  - Deobfuskierung sortiert Platzhalter nach Länge absteigend (kein _1 vor _10).
@@ -68,6 +70,16 @@
     }
 
     /**
+     * Baut eine RegExp, die ganze Bezeichner (\w-Läufe) trifft, die das
+     * Suchwort enthalten. "raum" mit 'gi' findet so SvcRaum, iRaum,
+     * Raumnummer, RaumOhneAenderungsnachweis – jeweils als kompletten
+     * Bezeichner, damit die Ersetzung nichts zerhackt.
+     */
+    function containingWordRegex(word, flags) {
+        return new RegExp('\\w*' + escapeRegex(word) + '\\w*', flags);
+    }
+
+    /**
      * Baut eine RegExp mit kontextsensitiven Wortgrenzen:
      *  - führendes \b nur, wenn das Wort mit einem Wortzeichen beginnt
      *  - abschließendes \b nur, wenn das Wort mit einem Wortzeichen endet
@@ -119,8 +131,9 @@
     const CS_PREFIX = 'STR_PLACEHOLDER_';
 
     /**
-     * Analysiert C#-Code: findet alle (Case-)Varianten der Suchwörter, die als
-     * Ganzwort im Code vorkommen, und vergibt kollisionssichere Platzhalter.
+     * Analysiert C#-Code: findet alle Bezeichner, die eines der Suchwörter
+     * enthalten (case-insensitiv, "raum" trifft auch SvcRaum/Raumnummer),
+     * und vergibt kollisionssichere Platzhalter pro Bezeichner-Variante.
      * @returns {Array<{original:string, placeholder:string}>} in Fundreihenfolge
      */
     function analyzeCSharp(code, words) {
@@ -135,7 +148,7 @@
             if (processedBaseWords.has(wordLower)) return;
             processedBaseWords.add(wordLower);
 
-            const searchRegex = wordRegex(word, 'gi');
+            const searchRegex = containingWordRegex(word, 'gi');
             let match;
             while ((match = searchRegex.exec(code)) !== null) {
                 const variant = match[0];
@@ -196,8 +209,9 @@
     }
 
     /**
-     * SQL String-Replace: vergibt Platzhalter für die Suchwörter (kollisionssicher)
-     * und liefert den vorverarbeiteten Code.
+     * SQL String-Replace: findet Bezeichner, die eines der Suchwörter enthalten
+     * (case-insensitiv), vergibt kollisionssichere Platzhalter und liefert den
+     * vorverarbeiteten Code.
      * @returns {{entries:Array<{word:string,placeholder:string}>, processedCode:string}}
      */
     function analyzeSqlStringReplace(words, code) {
@@ -210,7 +224,7 @@
             const wordLower = word.toLowerCase();
             if (processedBaseWords.has(wordLower)) return;
             processedBaseWords.add(wordLower);
-            const searchRegex = wordRegex(word, 'gi');
+            const searchRegex = containingWordRegex(word, 'gi');
             let match;
             while ((match = searchRegex.exec(code)) !== null) {
                 const variant = match[0];
@@ -406,7 +420,8 @@
         method:    'CS_METHOD_',
         prop:      'CS_PROP_',
         field:     'CS_FIELD_',
-        param:     'CS_PARAM_'
+        param:     'CS_PARAM_',
+        local:     'CS_LOCAL_'
     };
 
     const CS_TYPE_LABEL = {
@@ -417,7 +432,8 @@
         method:    'Methode',
         prop:      'Property',
         field:     'Feld',
-        param:     'Parameter'
+        param:     'Parameter',
+        local:     'Variable'
     };
 
     const CS_KEYWORD_SET = new Set([
@@ -460,7 +476,7 @@
         if (!text.trim()) return [];
 
         const suffix = uniqueSuffix(text, Object.values(CS_PREFIXES));
-        const counters = { class: 1, iface: 1, enum: 1, namespace: 1, method: 1, prop: 1, field: 1, param: 1 };
+        const counters = { class: 1, iface: 1, enum: 1, namespace: 1, method: 1, prop: 1, field: 1, param: 1, local: 1 };
         const found = new Map(); // element → typeKey (first-seen wins)
 
         const ID = '[a-zA-Z_][a-zA-Z0-9_]*';
@@ -469,6 +485,16 @@
             if (!name || found.has(name) || isCSharpKeyword(name)) return;
             if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) return;
             found.set(name, typeKey);
+        }
+
+        // Typ-Verwendung: Basis-Typ plus generische Argumente ("List<SvcRaum>"
+        // → SvcRaum) als Klassen-Kandidaten aufnehmen. Framework-Typen filtert
+        // isCSharpKeyword über push() heraus.
+        function pushType(base, generics) {
+            push(base, 'class');
+            if (generics) {
+                generics.split(/[^a-zA-Z0-9_]+/).forEach(function (g) { push(g, 'class'); });
+            }
         }
 
         let m;
@@ -489,31 +515,59 @@
             m[1].split('.').forEach(function (part) { push(part, 'namespace'); });
         }
 
+        // ── Objekt-Erzeugung: new Foo(...) / new Foo{...} / new Foo[...] ────
+        // Muss vor den Member-Regexen laufen, sonst würde "new" als Modifier
+        // den Typnamen fälschlich als Methode klassifizieren (first-seen wins).
+        const newRx = new RegExp('\\bnew\\s+(' + ID + ')\\s*(?:<([^>]*)>)?\\s*[({\\[]', 'g');
+        while ((m = newRx.exec(text)) !== null) pushType(m[1], m[2]);
+
         // ── Member-Deklarationen (mit Modifier als Anker) ───────────────────
         // Modifier-Präfix stellt sicher, dass wir Deklarationen treffen, nicht Aufrufe.
         const MOD = '(?:public|private|protected|internal|static|async|virtual|override' +
                     '|abstract|sealed|new|extern|partial|readonly|const|volatile)';
         const MODS = '\\b' + MOD + '(?:\\s+' + MOD + ')*\\s+';
-        // Typtoken: Bezeichner mit optionalen Generics, Array-Suffix, Nullable-Marker
-        const TYP = ID + '(?:<[^>]*>)?(?:\\[\\])*\\??\\s+';
+        // Typtoken mit Captures (Basis + generische Argumente), Array-Suffix, Nullable-Marker
+        const TYP = '(' + ID + ')(?:<([^>]*)>)?(?:\\[\\])*\\??\\s+';
 
         // Methoden: MODS [ReturnType] MethodenName(
         // TYP ist optional, damit Konstruktoren (ohne expliziten Rückgabetyp) ebenfalls erfasst werden.
         const methodRx = new RegExp(MODS + '(?:' + TYP + ')?(' + ID + ')\\s*(?:<[^>]*>\\s*)?\\(', 'g');
-        while ((m = methodRx.exec(text)) !== null) push(m[1], 'method');
+        while ((m = methodRx.exec(text)) !== null) { push(m[3], 'method'); pushType(m[1], m[2]); }
 
         // Properties: MODS TYP Name {
         const propRx = new RegExp(MODS + TYP + '(' + ID + ')\\s*\\{', 'g');
-        while ((m = propRx.exec(text)) !== null) push(m[1], 'prop');
+        while ((m = propRx.exec(text)) !== null) { push(m[3], 'prop'); pushType(m[1], m[2]); }
 
         // Felder: MODS [readonly|const] TYP Name ; oder =
         const fieldRx = new RegExp(MODS + '(?:readonly\\s+|const\\s+)?' + TYP + '(' + ID + ')\\s*(?:;|=)', 'g');
-        while ((m = fieldRx.exec(text)) !== null) push(m[1], 'field');
+        while ((m = fieldRx.exec(text)) !== null) { push(m[3], 'field'); pushType(m[1], m[2]); }
+
+        // ── foreach: Typ + Laufvariable ─────────────────────────────────────
+        const foreachRx = new RegExp('\\bforeach\\s*\\(\\s*' + TYP + '(' + ID + ')\\s+in\\b', 'g');
+        while ((m = foreachRx.exec(text)) !== null) { push(m[3], 'local'); pushType(m[1], m[2]); }
 
         // ── Parameter ───────────────────────────────────────────────────────
         // Alle Positionen: (Type name), (Type name, ...), ..., Type name), ..., Type name,
         const paramRx = new RegExp('[,(]\\s*(?:(?:ref|out|in|params)\\s+)?' + TYP + '(' + ID + ')\\s*(?=[,)=])', 'g');
-        while ((m = paramRx.exec(text)) !== null) push(m[1], 'param');
+        while ((m = paramRx.exec(text)) !== null) { push(m[3], 'param'); pushType(m[1], m[2]); }
+
+        // Benannte Argumente: Foo(name: wert) – Parametername an der Aufrufstelle.
+        // (?!:) schließt den Scope-Operator "::" aus; der Ternär-Operator matcht
+        // nicht, weil direkt nach dem Bezeichner ein ":" stehen muss.
+        const namedArgRx = new RegExp('[,(]\\s*(' + ID + ')\\s*:(?!:)', 'g');
+        while ((m = namedArgRx.exec(text)) !== null) push(m[1], 'param');
+
+        // Lambda-Parameter ohne Klammern: x => …  ("_" = Discard, nicht ersetzen).
+        // Läuft nach den Deklarations-Regexen, damit expression-bodied Member
+        // (first-seen) nicht als Parameter umklassifiziert werden.
+        const lambdaRx = new RegExp('\\b(' + ID + ')\\s*=>', 'g');
+        while ((m = lambdaRx.exec(text)) !== null) { if (m[1] !== '_') push(m[1], 'param'); }
+
+        // ── Lokale Variablen: Typ name = … (var-Deklarationen: Typ "var"
+        // fällt im Keyword-Filter weg, der Name wird trotzdem erkannt).
+        // (?![=>]) schließt == und => aus.
+        const localRx = new RegExp('\\b' + TYP + '(' + ID + ')\\s*=(?![=>])', 'g');
+        while ((m = localRx.exec(text)) !== null) { push(m[3], 'local'); pushType(m[1], m[2]); }
 
         // ── Ergebnis aufbauen ───────────────────────────────────────────────
         const result = [];

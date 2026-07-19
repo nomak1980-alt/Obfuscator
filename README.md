@@ -10,9 +10,15 @@ Dieser Obfuscator hilft dabei, vertrauliche Bezeichner im Code zu verschleiern, 
 
 ### **C# – String-Replace**
 - Trage Wörter über das Eingabefeld ein und drücke Enter oder klicke `+` (mindestens 3 Zeichen).
-- Alle Schreibvarianten im Code werden als **ganze Wörter** gefunden (`customer`, `Customer`, `CUSTOMER`).
+- Gefunden werden alle **ganzen Bezeichner, die das Wort enthalten** – unabhängig von Groß-/Kleinschreibung (`raum` findet `Raum`, `SvcRaum`, `iRaum`, `Raumnummer`). Jede Variante bekommt einen eigenen Platzhalter.
 - Wörter in Kommentaren werden ebenfalls durchsucht und ersetzt.
 - Du wählst per Auswahl-Tabelle aus, welche Varianten tatsächlich verschleiert werden.
+
+### **C# – automatische Elementerkennung**
+- Erkennt Klassen, Interfaces, Enums, Namespaces, Methoden, Properties, Felder, Parameter und lokale Variablen anhand der Deklarations-Syntax.
+- Auch Typ-Verwendungen werden erfasst: `new Foo()`, Parameter-/foreach-/Rückgabe-Typen sowie generische Argumente (`List<SvcRaum>` → `SvcRaum`) gelten als Klassen.
+- Parameter werden zusätzlich an Aufrufstellen erkannt: benannte Argumente (`Foo(iIX: …)`) und Lambda-Parameter (`x => …`).
+- Bekannte C#-Keywords und Framework-Typen (`List`, `Task`, `Exception`, …) werden nicht verschleiert.
 
 ### **MS SQL – automatische Elementerkennung**
 - Erkennt Tabellen, Felder, Prozeduren, Funktionen und Objekte über SQL-Syntax (FROM, JOIN, SELECT, ON, …).
@@ -21,7 +27,7 @@ Dieser Obfuscator hilft dabei, vertrauliche Bezeichner im Code zu verschleiern, 
 
 ### **Verschleierung**
 - Eindeutige, **kollisionssichere** Platzhalter (`STR_PLACEHOLDER_1`, `SQL_TABLE_1`, `SQL_COL_1`, …).
-- Ersetzung nur an Wortgrenzen – keine Teilstring-Treffer (`User` zerstört `Username` nicht).
+- String-Replace-Wörter treffen ganze Bezeichner, die das Wort enthalten (`raum` findet auch `SvcRaum`, `Raumnummer`) – ersetzt wird immer der komplette Bezeichner, nie ein Teilstück (`User` zerstört `Username` nicht, `Username` bekommt einen eigenen Platzhalter).
 - Kopierbare Ergebnisse für die KI-Eingabe.
 
 ### **Rückverwandlung**
@@ -85,7 +91,7 @@ Die Logik ist bewusst vom UI getrennt:
 
 ### **Korrektheits- und Sicherheitsgarantien (im Core)**
 - Platzhalter kollidieren nie mit bereits im Code vorhandenen Strings (deterministischer Salt).
-- Ersetzungen sind wortgrenzen-bewusst (keine Teilstring-Treffer).
+- Suchwörter treffen ganze Bezeichner (auch zusammengesetzte wie `SvcRaum` bei Suchwort `raum`); Platzhalter-Ersetzungen selbst sind wortgrenzen-bewusst – es wird nie ein Teilstück eines Bezeichners ersetzt.
 - Rück-Ersetzung über Funktions-Replacer → keine `$`-Sonderzeichen-Injection.
 - Deobfuskierung längen-sortiert → kein `_1` vor `_10`.
 - Alle in die Oberfläche geschriebenen Nutzereingaben werden HTML-escaped (XSS-Schutz).

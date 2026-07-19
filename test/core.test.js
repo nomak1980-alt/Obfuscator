@@ -31,12 +31,28 @@ it('escapeHtml maskiert <>&"\' ', () => {
     eq(C.escapeHtml(`<img src="x" onerror='y'>&`), '&lt;img src=&quot;x&quot; onerror=&#39;y&#39;&gt;&amp;');
 });
 
-console.log('\n# Wortgrenzen (Teilwort-Bug)');
-it('User ersetzt nicht den Teilstring in Username', () => {
+console.log('\n# Bezeichner-Treffer (Suchwort in zusammengesetzten Bezeichnern)');
+it('User erwischt auch Username – als ganzen Bezeichner, nicht zerhackt', () => {
     const { obf, deobf } = csharpRoundTrip('var Username = User.Name;', ['User']);
-    assert(/Username/.test(obf), 'Username darf nicht zerstört werden: ' + obf);
-    assert(!/\bUser\b/.test(obf), 'eigenständiges User muss ersetzt sein: ' + obf);
+    assert(!/User/i.test(obf), 'kein "User" mehr sichtbar (auch nicht in Username): ' + obf);
+    assert(!/STR_PLACEHOLDER_\d+name/.test(obf), 'Username darf nicht teil-ersetzt werden: ' + obf);
     eq(deobf, 'var Username = User.Name;', 'Round-Trip');
+});
+it('raum findet SvcRaum, iRaum, Raumnummer und RaumOhneAenderungsnachweis', () => {
+    const code = 'void Fuelle(List<SvcRaum> iRaum) { var n = item.Raumnummer; var t = IfmObjectTyp.RaumOhneAenderungsnachweis; }';
+    const { analyzed, obf, deobf } = csharpRoundTrip(code, ['raum']);
+    const originals = analyzed.map(e => e.original);
+    ['SvcRaum', 'iRaum', 'Raumnummer', 'RaumOhneAenderungsnachweis'].forEach(id => {
+        assert(originals.includes(id), id + ' nicht erkannt: ' + originals.join(', '));
+    });
+    assert(!/raum/i.test(obf), '"raum" darf nirgends mehr vorkommen: ' + obf);
+    eq(deobf, code, 'Round-Trip');
+});
+it('jede Bezeichner-Variante bekommt einen eigenen Platzhalter', () => {
+    const res = C.analyzeCSharp('SvcRaum a; iRaum b;', ['raum']);
+    const placeholders = res.map(e => e.placeholder);
+    eq(new Set(placeholders).size, placeholders.length, 'Platzhalter eindeutig');
+    eq(res.length, 2, 'zwei Bezeichner erkannt');
 });
 it('User UND UserId werden beide korrekt round-tripped', () => {
     const code = 'int UserId = User.Id;';
@@ -85,7 +101,7 @@ it('_1 ersetzt nicht den Anfang von _10', () => {
 });
 
 console.log('\n# C# Analyse');
-it('findet Case-Varianten als Ganzwort', () => {
+it('findet Case-Varianten der Suchwörter', () => {
     const res = C.analyzeCSharp('userId and UserId', ['userId']);
     const originals = res.map(r => r.original).sort();
     eq(originals.join(','), 'UserId,userId', 'beide Varianten');
@@ -125,6 +141,13 @@ it('SQL String-Replace schneidet ORDER BY nicht (Wortgrenze)', () => {
     assert(/ORDER BY/.test(processedCode), 'ORDER nicht zerschnitten: ' + processedCode);
     // beide eigenständigen "id" ersetzt
     assert(!/\bid\b/.test(processedCode), 'id ersetzt: ' + processedCode);
+    const back = C.reverseReplacements(processedCode, entries.map(e => ({ placeholder: e.placeholder, original: e.word })));
+    eq(back, code, 'Round-Trip');
+});
+it('SQL String-Replace erwischt Suchwort auch in zusammengesetzten Bezeichnern', () => {
+    const code = 'SELECT RaumId, Raumnummer FROM SvcRaum';
+    const { processedCode, entries } = C.analyzeSqlStringReplace(['raum'], code);
+    assert(!/raum/i.test(processedCode), '"raum" darf nirgends mehr vorkommen: ' + processedCode);
     const back = C.reverseReplacements(processedCode, entries.map(e => ({ placeholder: e.placeholder, original: e.word })));
     eq(back, code, 'Round-Trip');
 });
@@ -173,6 +196,144 @@ it('erkennt Parameter-Namen', () => {
     const names = r.map(e => e.element);
     assert(names.includes('orderId'), 'orderId fehlt: ' + names.join(', '));
     assert(names.includes('customerName'), 'customerName fehlt: ' + names.join(', '));
+});
+
+console.log('\n# analyzeCSharpElements – Typ-Verwendungen & weitere Bezeichner');
+function typeOf(r, name) {
+    const item = r.find(e => e.element === name);
+    return item ? item.type : undefined;
+}
+it('new Foo() wird als Klasse erkannt, nicht als Methode', () => {
+    const r = C.analyzeCSharpElements('var a = new EPTreeViewItem();');
+    eq(typeOf(r, 'EPTreeViewItem'), 'Klasse', 'EPTreeViewItem');
+});
+it('generisches Argument in new List<Foo>() wird als Klasse erkannt', () => {
+    const r = C.analyzeCSharpElements('var a = new List<EPTreeViewItem>();');
+    eq(typeOf(r, 'EPTreeViewItem'), 'Klasse', 'EPTreeViewItem');
+    assert(!r.some(e => e.element === 'List'), 'List ist Framework-Typ');
+});
+it('Parameter-Typ wird als Klasse erkannt', () => {
+    const r = C.analyzeCSharpElements('void Fuelle(ref EPTreeViewItem knoten, List<SvcRaum> raeume) { }');
+    eq(typeOf(r, 'EPTreeViewItem'), 'Klasse', 'EPTreeViewItem');
+    eq(typeOf(r, 'SvcRaum'), 'Klasse', 'SvcRaum (generisches Argument)');
+    eq(typeOf(r, 'knoten'), 'Parameter', 'knoten');
+    eq(typeOf(r, 'raeume'), 'Parameter', 'raeume');
+});
+it('benannte Argumente (iIX:) werden als Parameter erkannt', () => {
+    const r = C.analyzeCSharpElements('var q = new QueryStringParameter(iIX: id, iIX1: typ);');
+    eq(typeOf(r, 'iIX'), 'Parameter', 'iIX');
+    eq(typeOf(r, 'iIX1'), 'Parameter', 'iIX1');
+});
+it('ternärer Operator erzeugt keinen falschen benannten Parameter', () => {
+    const r = C.analyzeCSharpElements('var y = Foo(flag ? a : b);');
+    assert(!r.some(e => e.element === 'flag'), 'flag fälschlich als Parameter erkannt');
+});
+it('Lambda-Parameter (x =>) wird als Parameter erkannt', () => {
+    const r = C.analyzeCSharpElements('var f = list.FirstOrDefault(x => x.Id == 1);');
+    eq(typeOf(r, 'x'), 'Parameter', 'x');
+});
+it('Discard-Lambda (_ =>) wird nicht erkannt', () => {
+    const r = C.analyzeCSharpElements('var f = list.FirstOrDefault(_ => true);');
+    assert(!r.some(e => e.element === '_'), '_ darf nicht erkannt werden');
+});
+it('foreach: Typ als Klasse, Laufvariable als Variable', () => {
+    const r = C.analyzeCSharpElements('foreach (SvcRaum item in raeume) { }');
+    eq(typeOf(r, 'SvcRaum'), 'Klasse', 'SvcRaum');
+    eq(typeOf(r, 'item'), 'Variable', 'item');
+});
+it('lokale Variable mit Typ wird als Variable erkannt', () => {
+    const r = C.analyzeCSharpElements('EPTreeViewItem childStockwerk = parent.Children.FirstOrDefault();');
+    eq(typeOf(r, 'childStockwerk'), 'Variable', 'childStockwerk');
+    eq(typeOf(r, 'EPTreeViewItem'), 'Klasse', 'EPTreeViewItem');
+});
+it('Vergleich (==) erzeugt keine falsche Variable', () => {
+    const r = C.analyzeCSharpElements('if (childStockwerk == null) { }');
+    assert(!r.some(e => e.element === 'childStockwerk'), 'Vergleich fälschlich als Deklaration erkannt');
+});
+it('Feld-/Property-/Rückgabe-Typ wird als Klasse erkannt', () => {
+    const r = C.analyzeCSharpElements(
+        'private readonly IRepository _repo; public CustomerDto Data { get; set; } public async Task<Customer> GetCustomer(int id) { }');
+    eq(typeOf(r, 'IRepository'), 'Klasse', 'IRepository');
+    eq(typeOf(r, 'CustomerDto'), 'Klasse', 'CustomerDto');
+    eq(typeOf(r, 'Customer'), 'Klasse', 'Customer (generisches Argument im Rückgabetyp)');
+});
+it('Deklaration gewinnt vor Verwendung (first-seen)', () => {
+    const r = C.analyzeCSharpElements('public class Foo { } void Bar(Foo f) { var x = new Foo(); }');
+    eq(typeOf(r, 'Foo'), 'Klasse', 'Foo bleibt Klasse');
+    eq(r.filter(e => e.element === 'Foo').length, 1, 'Foo nur einmal');
+});
+
+console.log('\n# Regression: BefuelleInfrastrukturTreeView (Nutzer-Beispiel)');
+const USER_SAMPLE = `private static void BefuelleInfrastrukturTreeView(ref EPTreeViewItem iUebergeordneterKnoten, List<SvcRaum> iRaum)
+{
+    try
+    {
+        if (iRaum.Count > 0)
+        {
+            iUebergeordneterKnoten.Children = new List<EPTreeViewItem>();
+
+            foreach (SvcRaum item in iRaum)
+            {
+                EPTreeViewItem childStockwerk = iUebergeordneterKnoten.Children.FirstOrDefault(x => x.Id == item.Stockwerk);
+
+                if (childStockwerk == null)
+                {
+                    childStockwerk = new EPTreeViewItem()
+                    {
+                        Name = item.Stockwerk,
+                        Id = item.Stockwerk,
+                        Children = new List<EPTreeViewItem>(),
+                        URL = VirtualPathUtility.ToAbsolute(@"~/stammdaten/detailansicht") + "?" + QueryStringParameter.SetParameter(new QueryStringParameter(iIX1: IfmObjectTyp.Leer))
+                    };
+                    iUebergeordneterKnoten.Children.Add(childStockwerk);
+                }
+
+                EPTreeViewItem child = new EPTreeViewItem()
+                {
+                    Name = item.Bezeichnung + " (" + item.Raumnummer + ")",
+                    Id = item.ID.ToString(),
+                    URL = VirtualPathUtility.ToAbsolute(@"~/stammdaten/detailansicht") + "?" + QueryStringParameter.SetParameter(new QueryStringParameter(iIX: item.ID.ToString(), iIX1: IfmObjectTyp.RaumOhneAenderungsnachweis))
+                };
+
+                childStockwerk.Children.Add(child);
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        throw ExceptionHelper.GetNewException(ex);
+    }
+}`;
+it('String-Replace "raum" + Auto-Analyse: kein "raum" mehr im Ergebnis, Round-Trip exakt', () => {
+    // Nachbildung des UI-Flows: String-Replace zuerst, Auto-Analyse gefiltert danach.
+    const strAnalyzed = C.analyzeCSharp(USER_SAMPLE, ['raum']);
+    const strSet = new Set(strAnalyzed.map(e => e.original));
+    const autoAnalyzed = C.analyzeCSharpElements(USER_SAMPLE).filter(e => !strSet.has(e.element));
+
+    let obf = C.applyReplacements(USER_SAMPLE, strAnalyzed.map(e => ({ from: e.original, to: e.placeholder })));
+    obf = C.applyReplacements(obf, autoAnalyzed.map(e => ({ from: e.element, to: e.placeholder })));
+
+    assert(!/raum/i.test(obf), '"raum" noch im verschleierten Code:\n' + obf);
+
+    let deobf = C.reverseReplacements(obf, autoAnalyzed.map(e => ({ placeholder: e.placeholder, original: e.element })));
+    deobf = C.reverseReplacements(deobf, strAnalyzed.map(e => ({ placeholder: e.placeholder, original: e.original })));
+    eq(deobf, USER_SAMPLE, 'Round-Trip');
+});
+it('Nutzer-Beispiel: Klassifikation der wichtigsten Bezeichner', () => {
+    const r = C.analyzeCSharpElements(USER_SAMPLE);
+    eq(typeOf(r, 'BefuelleInfrastrukturTreeView'), 'Methode', 'BefuelleInfrastrukturTreeView');
+    eq(typeOf(r, 'EPTreeViewItem'), 'Klasse', 'EPTreeViewItem');
+    eq(typeOf(r, 'QueryStringParameter'), 'Klasse', 'QueryStringParameter');
+    eq(typeOf(r, 'SvcRaum'), 'Klasse', 'SvcRaum');
+    eq(typeOf(r, 'iUebergeordneterKnoten'), 'Parameter', 'iUebergeordneterKnoten');
+    eq(typeOf(r, 'iRaum'), 'Parameter', 'iRaum');
+    eq(typeOf(r, 'iIX'), 'Parameter', 'iIX');
+    eq(typeOf(r, 'iIX1'), 'Parameter', 'iIX1');
+    eq(typeOf(r, 'x'), 'Parameter', 'x (Lambda)');
+    eq(typeOf(r, 'ex'), 'Parameter', 'ex (catch)');
+    eq(typeOf(r, 'item'), 'Variable', 'item (foreach)');
+    eq(typeOf(r, 'childStockwerk'), 'Variable', 'childStockwerk');
+    eq(typeOf(r, 'child'), 'Variable', 'child');
 });
 
 console.log('\n# analyzeCSharpElements – Filter & Sicherheit');
