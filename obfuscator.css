@@ -207,18 +207,27 @@ button:active {
     font-weight: 600;
 }
 
-/* Toast-Meldungen: festes Overlay unten rechts, verschiebt kein Layout */
-#statusMessage,
-#sqlStatusMessage,
-#globalMessage {
+/* Toast-Meldungen: gemeinsamer Stapel unten rechts (U3). Alle drei Quellen
+   (C#, SQL, global) liegen im selben Flex-Container und schieben sich beim
+   gleichzeitigen Anzeigen übereinander, statt sich zu überdecken. */
+.toast-stack {
     position: fixed;
     bottom: 24px;
     right: 24px;
     z-index: 1000;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: flex-end;
+    gap: 8px;
     max-width: 420px;
+    pointer-events: none;
+}
+
+.toast-stack .status {
     min-width: 180px;
     margin: 0;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    pointer-events: auto;
 }
 
 .status.success {
@@ -280,34 +289,6 @@ button:active {
 .stat-label {
     color: #a0a0a0;
     margin-top: 5px;
-}
-
-@media (max-width: 768px) {
-    .container {
-        padding: 20px;
-        margin: 10px;
-    }
-
-    h1 {
-        font-size: 2em;
-    }
-
-    .button-group {
-        flex-direction: column;
-    }
-
-    button {
-        width: 100%;
-    }
-
-    .code-row {
-        grid-template-columns: 1fr;
-    }
-
-    .mapping-selection-table {
-        display: block;
-        overflow-x: auto;
-    }
 }
 
 .mapping-selection-table {
@@ -542,4 +523,41 @@ h4 {
 .chip-remove:hover {
     color: #f87171;
     box-shadow: none;
+}
+
+/* U1: Muss am Dateiende stehen, damit diese Regeln (gleiche Spezifität) die
+   unbedingten Regeln weiter oben (z.B. .code-row, .header-row) überschreiben. */
+@media (max-width: 768px) {
+    .container {
+        padding: 20px;
+        margin: 10px;
+    }
+
+    h1 {
+        font-size: 2em;
+    }
+
+    .button-group {
+        flex-direction: column;
+    }
+
+    .button-group button {
+        width: 100%;
+    }
+
+    .code-row {
+        grid-template-columns: 1fr;
+    }
+
+    .mapping-selection-table {
+        display: block;
+        overflow-x: auto;
+    }
+
+    /* U2: flex-wrap verhindert, dass Export/Import-Buttons rechts aus dem
+       Container herauslaufen und horizontales Scrollen erzwingen. */
+    .header-row {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
 }

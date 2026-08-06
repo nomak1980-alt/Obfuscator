@@ -21,7 +21,11 @@
                 <input type="file" id="importFileInput" accept=".json" style="display: none;" aria-hidden="true">
             </div>
         </div>
-        <div id="globalMessage" role="alert" aria-live="assertive"></div>
+        <div class="toast-stack">
+            <div id="globalMessage" role="alert" aria-live="assertive"></div>
+            <div id="statusMessage" role="status" aria-live="polite"></div>
+            <div id="sqlStatusMessage" role="status" aria-live="polite"></div>
+        </div>
 
         <div class="tabs" role="tablist" aria-label="Code-Typ">
             <!-- FIX #6: data-tab Attribute statt nth-child Selektion -->
@@ -76,8 +80,6 @@
                 <button class="btn-primary" data-action="analyzeCode">🔍 Code Analysieren</button>
                 <button class="btn-danger" data-action="clearAll">🗑️ Alles Löschen</button>
             </div>
-
-            <div id="statusMessage" role="status" aria-live="polite"></div>
 
             <!-- FIX #10: Neue Auswahl-Sektion für C# (wie SQL) -->
             <div class="section" id="csharpMappingSelectionSection" style="display: none;">
@@ -193,8 +195,6 @@
                 <button class="btn-primary" data-action="analyzeSqlCode">🔍 SQL Analysieren</button>
                 <button class="btn-danger" data-action="clearSqlAll">🗑️ Alles Löschen</button>
             </div>
-
-            <div id="sqlStatusMessage" role="status" aria-live="polite"></div>
 
             <div class="section" id="sqlMappingSelectionSection" style="display: none;">
                 <h3 class="collapsible" title="Sektion ein-/ausklappen">
