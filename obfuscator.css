@@ -287,6 +287,31 @@ button:active {
     color: #e0e0e0;
 }
 
+/* U6: feste Spaltenbreiten – ohne das läuft "Typ" (kurze Wörter wie "Klasse")
+   auf über ein Drittel der Breite, während Original/Platzhalter weit
+   auseinanderdriften. */
+.mapping-selection-table {
+    table-layout: fixed;
+}
+
+.mapping-selection-table th:nth-child(1),
+.mapping-selection-table td:nth-child(1) {
+    width: 50px;
+}
+
+.mapping-selection-table th:nth-child(2),
+.mapping-selection-table td:nth-child(2) {
+    width: 120px;
+}
+
+.mapping-selection-table th:nth-child(3),
+.mapping-selection-table td:nth-child(3),
+.mapping-selection-table th:nth-child(4),
+.mapping-selection-table td:nth-child(4) {
+    width: auto;
+    overflow-wrap: break-word;
+}
+
 .mapping-selection-table tr:hover {
     background-color: #252525;
 }

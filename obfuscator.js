@@ -152,11 +152,13 @@ function captureSqlSelection() {
     }));
 }
 
+// U7: neben style.display auch die collapsed-Klasse erfassen, damit ein
+// eingeklappter Zustand ein Neuladen übersteht.
 function captureSections(ids) {
     const out = {};
     ids.forEach(id => {
         const el = document.getElementById(id);
-        if (el) out[id] = el.style.display || '';
+        if (el) out[id] = { display: el.style.display || '', collapsed: el.classList.contains('collapsed') };
     });
     return out;
 }
@@ -275,7 +277,15 @@ function applySections(sections) {
     if (!sections) return;
     Object.keys(sections).forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.style.display = sections[id] || 'none';
+        if (!el) return;
+        const entry = sections[id];
+        // Altformat (vor U7): entry war ein reiner display-String.
+        if (typeof entry === 'string') {
+            el.style.display = entry || 'none';
+            return;
+        }
+        el.style.display = (entry && entry.display) || 'none';
+        el.classList.toggle('collapsed', !!(entry && entry.collapsed));
     });
 }
 

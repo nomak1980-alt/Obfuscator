@@ -631,6 +631,25 @@ console.log('\n# R4 – csharpAutoTypeMap wird beim Verschleiern mit der Auswahl
         assert(win.__t.has('csharpAutoTypeMap', 'CustomerService'), 'CustomerService fehlt in csharpAutoTypeMap'));
 })();
 
+console.log('\n# U7 – collapsed-Zustand übersteht ein Neuladen');
+(() => {
+    resetCsharp();
+    setVal('originalCode', CSHARP_CODE);
+    ev("addChip('CustomerService', window.__csharpWords, 'stringReplaceChips')");
+    ev('analyzeCode()');
+    ev('obfuscateCode()'); // obfuscateCode() klappt die Auswahl-Sektion ein
+    it('Vorbereitung: Auswahl-Sektion ist eingeklappt', () =>
+        assert($('csharpMappingSelectionSection').classList.contains('collapsed')));
+
+    // saveState() ist gemockt – Sections manuell wie beim echten Speichern erfassen.
+    const sections = win.eval("captureSections(['csharpMappingSelectionSection'])");
+    win.eval(`window.__savedSections = ${JSON.stringify(sections)};`);
+    $('csharpMappingSelectionSection').classList.remove('collapsed'); // simuliert Neuladen (Klasse verloren)
+    ev('applySections(window.__savedSections)');
+    it('collapsed-Klasse nach applySections wiederhergestellt', () =>
+        assert($('csharpMappingSelectionSection').classList.contains('collapsed')));
+})();
+
 console.log(`\n──────────────────────────────────────────`);
 console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);
 process.exit(fail ? 1 : 0);
