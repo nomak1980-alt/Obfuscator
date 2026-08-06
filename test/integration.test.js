@@ -68,11 +68,11 @@ const ACCESSOR = `
   resetCs: () => {
     stringReplaceMapping = new Map(); reverseStringReplaceMapping = new Map(); replacementHistory = [];
     csharpAutoMapping = new Map(); reverseCsharpAutoMapping = new Map(); csharpAutoTypeMap = new Map();
-    csharpReplaceWords.length = 0;
+    csharpReplaceWords.length = 0; lastAnalyzedCsharpCode = null;
   },
   resetSql: () => {
     sqlMapping = new Map(); reverseSqlMapping = new Map(); sqlStringReplaceMapping = new Map();
-    reverseSqlStringReplaceMapping = new Map(); sqlReplaceWords.length = 0;
+    reverseSqlStringReplaceMapping = new Map(); sqlReplaceWords.length = 0; lastAnalyzedSqlCode = null;
   }
 };
 ;window.__csharpWords = csharpReplaceWords;
@@ -455,6 +455,31 @@ console.log('\n# Chip-Mindestlänge');
     ev("addChip('abc', window.__csharpWords, 'stringReplaceChips')");
     it('Chip mit 3 Zeichen wird akzeptiert', () =>
         assert(win.__csharpWords.includes('abc'), 'abc fehlt in csharpReplaceWords'));
+})();
+
+console.log('\n# K1 – Verschleiern nach Code-Änderung wird abgelehnt');
+(() => {
+    resetCsharp();
+    setVal('originalCode', CSHARP_CODE);
+    ev("addChip('CustomerService', window.__csharpWords, 'stringReplaceChips')");
+    ev('analyzeCode()');
+    setVal('originalCode', 'public class GeheimeKlasse { }');
+    ev('obfuscateCode()');
+    it('obfuscatedCode bleibt leer, kein Klartext-Leak', () => eq($('obfuscatedCode').value, ''));
+    it('obfuscatedSection bleibt versteckt', () => assert($('obfuscatedSection').style.display !== 'block'));
+    it('Fehlermeldung verlangt erneute Analyse', () =>
+        assert($('statusMessage').className.includes('error'), $('statusMessage').textContent));
+})();
+
+(() => {
+    resetSql();
+    setVal('sqlOriginalCode', SQL_CODE);
+    ev('analyzeSqlCode()');
+    setVal('sqlOriginalCode', 'SELECT GeheimeSpalte FROM GeheimeTabelle');
+    ev('obfuscateSqlCode()');
+    it('SQL: sqlObfuscatedCode bleibt leer, kein Klartext-Leak', () => eq($('sqlObfuscatedCode').value, ''));
+    it('SQL: Fehlermeldung verlangt erneute Analyse', () =>
+        assert($('sqlStatusMessage').className.includes('error'), $('sqlStatusMessage').textContent));
 })();
 
 console.log(`\n──────────────────────────────────────────`);

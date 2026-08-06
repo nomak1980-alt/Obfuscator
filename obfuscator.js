@@ -21,6 +21,10 @@ let reverseSqlMapping = new Map();
 let currentTab = 'csharp';
 let csharpReplaceWords = [];
 let sqlReplaceWords = [];
+// Code-Stand zum Zeitpunkt der letzten Analyse (K1: verhindert Verschleiern
+// mit veralteten Mappings, wenn der Nutzer den Code danach ändert).
+let lastAnalyzedCsharpCode = null;
+let lastAnalyzedSqlCode = null;
 
 let statusTimer = null;
 let sqlStatusTimer = null;
@@ -169,6 +173,7 @@ function saveState() {
             replacementHistory: replacementHistory,
             csharpAutoMapping: Array.from(csharpAutoMapping.entries()),
             csharpAutoTypeMap: Array.from(csharpAutoTypeMap.entries()),
+            lastAnalyzedCode: lastAnalyzedCsharpCode,
             selection: captureCsharpSelection(),
             sections: captureSections([
                 'csharpMappingSelectionSection',
@@ -186,6 +191,7 @@ function saveState() {
             sqlStringReplaceWords: [...sqlReplaceWords],
             sqlMapping: Array.from(sqlMapping.entries()),
             sqlStringReplaceMapping: Array.from(sqlStringReplaceMapping.entries()),
+            lastAnalyzedCode: lastAnalyzedSqlCode,
             selection: captureSqlSelection(),
             sections: captureSections([
                 'sqlUsedMappingSection',
@@ -310,6 +316,7 @@ function loadState() {
             csharpAutoMapping = new Map(cs.csharpAutoMapping || []);
             reverseCsharpAutoMapping = buildReverse(csharpAutoMapping);
             csharpAutoTypeMap = new Map(cs.csharpAutoTypeMap || []);
+            lastAnalyzedCsharpCode = typeof cs.lastAnalyzedCode === 'string' ? cs.lastAnalyzedCode : null;
             replacementHistory = cs.replacementHistory || [];
             if (stringReplaceMapping.size > 0 && replacementHistory.length === 0) {
                 stringReplaceMapping.forEach((ph, orig) => replacementHistory.push({ placeholder: ph, original: orig }));
@@ -344,6 +351,7 @@ function loadState() {
             reverseSqlMapping = buildReverse(sqlMapping);
             sqlStringReplaceMapping = new Map(sq.sqlStringReplaceMapping || []);
             reverseSqlStringReplaceMapping = buildReverse(sqlStringReplaceMapping);
+            lastAnalyzedSqlCode = typeof sq.lastAnalyzedCode === 'string' ? sq.lastAnalyzedCode : null;
 
             if (sq.selection && sq.selection.length > 0) restoreSqlSelection(sq.selection);
             if (sqlMapping.size > 0 || sqlStringReplaceMapping.size > 0) updateSqlUsedMappingDisplay();
@@ -485,6 +493,7 @@ function analyzeCode() {
         return;
     }
 
+    lastAnalyzedCsharpCode = originalCode;
     renderCsharpSelectionTable(stringReplaceMapping, csharpAutoMapping, csharpAutoTypeMap);
     const csharpSelSec = document.getElementById('csharpMappingSelectionSection');
     csharpSelSec.style.display = 'block';
@@ -563,6 +572,11 @@ function obfuscateCode() {
     const originalCode = document.getElementById('originalCode').value.trim();
     if (!originalCode) {
         showStatus('Bitte füge zuerst deinen C# Code ein!', 'error');
+        return;
+    }
+
+    if (originalCode !== lastAnalyzedCsharpCode) {
+        showStatus('Der Code wurde seit der Analyse geändert — bitte erneut analysieren.', 'error');
         return;
     }
 
@@ -655,6 +669,7 @@ function clearAll() {
     csharpAutoMapping = new Map();
     reverseCsharpAutoMapping = new Map();
     csharpAutoTypeMap = new Map();
+    lastAnalyzedCsharpCode = null;
 
     ['csharpMappingSelectionSection', 'obfuscatedSection', 'csharpUsedMappingSection',
         'aiResponseSection', 'finalSection']
@@ -705,6 +720,7 @@ function analyzeSqlCode() {
         showSqlStatus('Keine SQL-Elemente oder String-Replace-Wörter gefunden.', 'error');
         document.getElementById('sqlMappingSelectionSection').style.display = 'none';
     }
+    lastAnalyzedSqlCode = originalCode;
     document.getElementById('sqlObfuscatedSection').style.display = 'none';
     document.getElementById('sqlAiResponseSection').style.display = 'none';
     document.getElementById('sqlUsedMappingSection').style.display = 'none';
@@ -778,6 +794,11 @@ function obfuscateSqlCode() {
     const originalCode = document.getElementById('sqlOriginalCode').value.trim();
     if (!originalCode) {
         showSqlStatus('Bitte füge zuerst deine SQL Queries ein!', 'error');
+        return;
+    }
+
+    if (originalCode !== lastAnalyzedSqlCode) {
+        showSqlStatus('Der Code wurde seit der Analyse geändert — bitte erneut analysieren.', 'error');
         return;
     }
 
@@ -867,6 +888,7 @@ function clearSqlAll() {
     reverseSqlMapping = new Map();
     sqlStringReplaceMapping = new Map();
     reverseSqlStringReplaceMapping = new Map();
+    lastAnalyzedSqlCode = null;
 
     ['sqlObfuscatedSection', 'sqlUsedMappingSection', 'sqlMappingSelectionSection',
         'sqlAiResponseSection', 'sqlFinalSection']
