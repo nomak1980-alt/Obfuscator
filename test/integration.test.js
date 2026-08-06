@@ -566,6 +566,21 @@ console.log('\n# W1 – fehlender Zweig beim Laden/Importieren wird aktiv geleer
     it('C#-Zweig wird trotzdem korrekt geladen', () => eq($('originalCode').value, 'class B {}'));
 })();
 
+console.log('\n# W4 – kurze Chips überleben Laden/Importieren');
+(() => {
+    resetCsharp();
+    const stateWithShortWord = JSON.stringify({
+        version: 1,
+        csharp: { originalCode: '', stringReplaceWords: ['id', 'PLZ', 'Kunde'] }
+    });
+    win.localStorage.setItem('obfuscatorAppState_v1', stateWithShortWord);
+    ev('loadState()');
+    it('kurzes Wort "id" (2 Zeichen) bleibt beim Laden erhalten', () =>
+        assert(win.__csharpWords.includes('id'), win.__csharpWords.join(',')));
+    it('normale Wörter bleiben ebenfalls erhalten', () =>
+        assert(win.__csharpWords.includes('PLZ') && win.__csharpWords.includes('Kunde'), win.__csharpWords.join(',')));
+})();
+
 console.log(`\n──────────────────────────────────────────`);
 console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);
 process.exit(fail ? 1 : 0);

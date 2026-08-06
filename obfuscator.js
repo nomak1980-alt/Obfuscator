@@ -91,13 +91,16 @@ function renderChip(word, arr, containerId) {
     container.appendChild(chip);
 }
 
-function addChip(word, arr, containerId) {
+// skipValidation (W4): beim Wiederherstellen aus localStorage/Import dürfen
+// auch Wörter unter 3 Zeichen, die vor Einführung der Mindestlänge gespeichert
+// wurden, nicht stillschweigend verloren gehen.
+function addChip(word, arr, containerId, skipValidation) {
     const trimmed = word.trim();
     if (!trimmed) return;
     const inputId = containerId === 'stringReplaceChips' ? 'stringReplaceInput'
                   : containerId === 'sqlStringReplaceChips' ? 'sqlStringReplaceInput'
                   : null;
-    if (arr.includes(trimmed) || trimmed.length < 3) {
+    if (arr.includes(trimmed) || (!skipValidation && trimmed.length < 3)) {
         if (inputId) {
             const input = document.getElementById(inputId);
             if (input) {
@@ -298,14 +301,14 @@ function loadState() {
             document.getElementById('finalCode').value = cs.finalCode || '';
             clearChips(csharpReplaceWords, 'stringReplaceChips');
             if (Array.isArray(cs.stringReplaceWords)) {
-                cs.stringReplaceWords.forEach(w => addChip(w, csharpReplaceWords, 'stringReplaceChips'));
+                cs.stringReplaceWords.forEach(w => addChip(w, csharpReplaceWords, 'stringReplaceChips', true));
             } else {
                 // backward compat: old format had stringReplace1/2/3 as multiline strings
                 const seen = new Set();
                 ['stringReplace1', 'stringReplace2', 'stringReplace3'].forEach(key => {
                     if (cs[key]) {
                         cs[key].split('\n').map(w => w.trim()).filter(Boolean).forEach(w => {
-                            if (!seen.has(w)) { seen.add(w); addChip(w, csharpReplaceWords, 'stringReplaceChips'); }
+                            if (!seen.has(w)) { seen.add(w); addChip(w, csharpReplaceWords, 'stringReplaceChips', true); }
                         });
                     }
                 });
@@ -339,13 +342,13 @@ function loadState() {
             document.getElementById('sqlFinalCode').value = sq.sqlFinalCode || '';
             clearChips(sqlReplaceWords, 'sqlStringReplaceChips');
             if (Array.isArray(sq.sqlStringReplaceWords)) {
-                sq.sqlStringReplaceWords.forEach(w => addChip(w, sqlReplaceWords, 'sqlStringReplaceChips'));
+                sq.sqlStringReplaceWords.forEach(w => addChip(w, sqlReplaceWords, 'sqlStringReplaceChips', true));
             } else {
                 const seen = new Set();
                 ['sqlStringReplace1', 'sqlStringReplace2', 'sqlStringReplace3'].forEach(key => {
                     if (sq[key]) {
                         sq[key].split('\n').map(w => w.trim()).filter(Boolean).forEach(w => {
-                            if (!seen.has(w)) { seen.add(w); addChip(w, sqlReplaceWords, 'sqlStringReplaceChips'); }
+                            if (!seen.has(w)) { seen.add(w); addChip(w, sqlReplaceWords, 'sqlStringReplaceChips', true); }
                         });
                     }
                 });
