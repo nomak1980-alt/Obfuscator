@@ -97,15 +97,21 @@
      * Wendet Ersetzungen an (Obfuskierung).
      * @param {string} code
      * @param {Array<{from:string,to:string}>} entries
+     * @param {(from:string,to:string)=>void} [onMatch] wird bei jedem tatsächlichen
+     *        Treffer aufgerufen (K3: erlaubt Aufrufern, echte Ersetzungen statt
+     *        Mapping-Größe zu zählen, ohne die String-Rückgabe zu verändern).
      * Längste "from" zuerst → vermeidet Teilwort-Kollisionen.
      * Funktions-Replacer → "to" wird literal eingesetzt (kein $-Sonderzeichen).
      */
-    function applyReplacements(code, entries) {
+    function applyReplacements(code, entries, onMatch) {
         let out = code;
         const sorted = entries.slice().sort((a, b) => b.from.length - a.from.length);
         sorted.forEach(({ from, to }) => {
             if (!from) return;
-            out = out.replace(wordRegex(from, 'g'), () => to);
+            out = out.replace(wordRegex(from, 'g'), () => {
+                if (onMatch) onMatch(from, to);
+                return to;
+            });
         });
         return out;
     }
@@ -113,15 +119,19 @@
     /**
      * Macht Ersetzungen rückgängig (Deobfuskierung).
      * @param {Array<{placeholder:string,original:string}>} entries
+     * @param {(placeholder:string,original:string)=>void} [onMatch] siehe applyReplacements.
      * Längste Platzhalter zuerst (kein _1 vor _10). Funktions-Replacer → keine
      * $-Injection über manipulierte/importierte Originalwerte.
      */
-    function reverseReplacements(code, entries) {
+    function reverseReplacements(code, entries, onMatch) {
         let out = code;
         const sorted = entries.slice().sort((a, b) => b.placeholder.length - a.placeholder.length);
         sorted.forEach(({ placeholder, original }) => {
             if (!placeholder) return;
-            out = out.replace(wordRegex(placeholder, 'g'), () => original);
+            out = out.replace(wordRegex(placeholder, 'g'), () => {
+                if (onMatch) onMatch(placeholder, original);
+                return original;
+            });
         });
         return out;
     }

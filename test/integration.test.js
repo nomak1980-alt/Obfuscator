@@ -482,6 +482,38 @@ console.log('\n# K1 – Verschleiern nach Code-Änderung wird abgelehnt');
         assert($('sqlStatusMessage').className.includes('error'), $('sqlStatusMessage').textContent));
 })();
 
+console.log('\n# K3 – echte Ersetzungszähler statt Mapping-Größe');
+(() => {
+    resetCsharp();
+    setVal('originalCode', 'public class Kundendaten { private string IBAN; }');
+    ev("addChip('IBAN', window.__csharpWords, 'stringReplaceChips')");
+    ev('analyzeCode()');
+    doc.querySelectorAll('.csharp-mapping-checkbox').forEach(cb => {
+        if (cb.dataset.original === 'IBAN') cb.checked = false;
+    });
+    ev('obfuscateCode()');
+    const obf = $('obfuscatedCode').value;
+    it('abgewähltes IBAN bleibt im Klartext', () => assert(obf.includes('IBAN'), obf));
+    it('Warnung meldet abgewähltes IBAN', () =>
+        assert($('statusMessage').textContent.includes('IBAN'), $('statusMessage').textContent));
+    it('Warnstatus ist error (nicht grüner Erfolg)', () =>
+        assert($('statusMessage').className.includes('error'), $('statusMessage').className));
+})();
+
+(() => {
+    resetCsharp();
+    setVal('originalCode', CSHARP_CODE);
+    ev("addChip('CustomerService', window.__csharpWords, 'stringReplaceChips')");
+    ev('analyzeCode()');
+    ev('obfuscateCode()');
+    setVal('aiResponse', 'Ich kann dir dabei leider nicht helfen.');
+    ev('deobfuscateCode()');
+    it('Zurückverwandeln ohne Treffer meldet 0 statt falscher Erfolgszahl', () =>
+        assert(!/erfolgreich zurückverwandelt/.test($('statusMessage').textContent), $('statusMessage').textContent));
+    it('Zurückverwandeln ohne Treffer ist Fehlerstatus', () =>
+        assert($('statusMessage').className.includes('error'), $('statusMessage').className));
+})();
+
 console.log(`\n──────────────────────────────────────────`);
 console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);
 process.exit(fail ? 1 : 0);

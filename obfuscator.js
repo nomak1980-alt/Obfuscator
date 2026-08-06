@@ -421,6 +421,14 @@ function notify(message, type = 'success') {
     (currentTab === 'mssql' ? showSqlStatus : showStatus)(message, type);
 }
 
+// K3: baut einen Warnhinweis, wenn analysierte, aber abgewählte Begriffe im
+// Ergebnis unverschleiert stehen bleiben (der Nutzer soll das nicht übersehen).
+function unreplacedWarning(originals) {
+    if (originals.length === 0) return '';
+    const preview = originals.slice(0, 5).join(', ') + (originals.length > 5 ? ` (+${originals.length - 5} weitere)` : '');
+    return ` Achtung: ${originals.length} abgewählte(r) Begriff(e) bleibt/bleiben im Klartext: ${preview}.`;
+}
+
 // Gemeinsames Rendern einer "Original → Platzhalter"-Liste.
 function renderMappingList(divId, map, emptyText) {
     const div = document.getElementById(divId);
@@ -586,6 +594,11 @@ function obfuscateCode() {
         return;
     }
 
+    // Abgewählte Begriffe merken, bevor die Auswahl-Sektion neu aufgebaut wird (K3).
+    const deselectedOriginals = Array.from(document.querySelectorAll('.csharp-mapping-checkbox'))
+        .filter(cb => !cb.checked)
+        .map(cb => cb.dataset.original);
+
     // Checkboxen nach Typ trennen
     stringReplaceMapping = new Map();
     replacementHistory = [];
@@ -604,11 +617,15 @@ function obfuscateCode() {
     reverseStringReplaceMapping = buildReverse(stringReplaceMapping);
     reverseCsharpAutoMapping = buildReverse(csharpAutoMapping);
 
+    // Echte Ersetzungen zählen statt Mapping-Größe (K3).
+    let replacedCount = 0;
+    const countMatch = () => replacedCount++;
+
     // Schritt 1: String-Replace zuerst
-    let obfuscatedCode = Core.applyReplacements(originalCode, mapToForward(stringReplaceMapping));
+    let obfuscatedCode = Core.applyReplacements(originalCode, mapToForward(stringReplaceMapping), countMatch);
 
     // Schritt 2: Auto-Mapping danach
-    obfuscatedCode = Core.applyReplacements(obfuscatedCode, mapToForward(csharpAutoMapping));
+    obfuscatedCode = Core.applyReplacements(obfuscatedCode, mapToForward(csharpAutoMapping), countMatch);
 
     document.getElementById('obfuscatedCode').value = obfuscatedCode;
     document.getElementById('obfuscatedSection').style.display = 'block';
@@ -619,7 +636,12 @@ function obfuscateCode() {
     const total = stringReplaceMapping.size + csharpAutoMapping.size;
     document.getElementById('csharpUsedMappingSection').style.display = total > 0 ? 'block' : 'none';
 
-    showStatus(`Code erfolgreich verschleiert! ${total} Elemente ersetzt.`);
+    const warning = unreplacedWarning(deselectedOriginals);
+    const hasIssue = replacedCount === 0 || warning;
+    showStatus(
+        `Code ${replacedCount === 0 ? 'NICHT verschleiert' : 'verschleiert'}! ${replacedCount} Ersetzung(en) vorgenommen.${warning}`,
+        hasIssue ? 'error' : 'success'
+    );
     saveState();
 }
 
@@ -639,16 +661,23 @@ function deobfuscateCode() {
         return;
     }
 
+    let restoredCount = 0;
+    const countMatch = () => restoredCount++;
+
     // Schritt 1: Auto-Mapping zuerst rückgängig
-    let finalCode = Core.reverseReplacements(aiResponse, mapToReverse(reverseCsharpAutoMapping));
+    let finalCode = Core.reverseReplacements(aiResponse, mapToReverse(reverseCsharpAutoMapping), countMatch);
 
     // Schritt 2: String-Replace rückgängig
-    finalCode = Core.reverseReplacements(finalCode, replacementHistory);
+    finalCode = Core.reverseReplacements(finalCode, replacementHistory, countMatch);
 
     document.getElementById('finalCode').value = finalCode;
     document.getElementById('finalSection').style.display = 'block';
-    const total = replacementHistory.length + reverseCsharpAutoMapping.size;
-    showStatus(`Code erfolgreich zurückverwandelt! ${total} Elemente wiederhergestellt.`);
+    showStatus(
+        restoredCount === 0
+            ? 'Zurückverwandeln ohne Treffer: Kein bekannter Platzhalter in der KI-Antwort gefunden.'
+            : `Code erfolgreich zurückverwandelt! ${restoredCount} Ersetzung(en) vorgenommen.`,
+        restoredCount === 0 ? 'error' : 'success'
+    );
     saveState();
 }
 
@@ -808,15 +837,23 @@ function obfuscateSqlCode() {
         return;
     }
 
+    // Abgewählte Begriffe merken, bevor die Auswahl neu aufgebaut wird (K3).
+    const deselectedOriginals = Array.from(document.querySelectorAll('.sql-mapping-checkbox'))
+        .filter(cb => !cb.checked)
+        .map(cb => cb.dataset.element);
+
     // Checkboxen nach Typ trennen
     const strCheckboxes = Array.from(selectedCheckboxes).filter(cb => cb.dataset.type === 'String');
     const sqlCheckboxes = Array.from(selectedCheckboxes).filter(cb => cb.dataset.type !== 'String');
+
+    let replacedCount = 0;
+    const countMatch = () => replacedCount++;
 
     // Schritt 1: Ausgewählte String-Replace-Einträge direkt aus den Checkboxen übernehmen
     const strEntries = strCheckboxes.map(cb => ({ from: cb.dataset.element, to: cb.dataset.obfuscated }));
     sqlStringReplaceMapping = new Map(strEntries.map(e => [e.from, e.to]));
     reverseSqlStringReplaceMapping = buildReverse(sqlStringReplaceMapping);
-    let obfuscatedCode = Core.applyReplacements(originalCode, strEntries);
+    let obfuscatedCode = Core.applyReplacements(originalCode, strEntries, countMatch);
 
     // Schritt 2: Ausgewählte SQL-Elemente verschleiern
     const selection = sqlCheckboxes.map(cb => ({
@@ -828,7 +865,8 @@ function obfuscateSqlCode() {
 
     obfuscatedCode = Core.applyReplacements(
         obfuscatedCode,
-        assigned.map(a => ({ from: a.element, to: a.placeholder }))
+        assigned.map(a => ({ from: a.element, to: a.placeholder })),
+        countMatch
     );
 
     document.getElementById('sqlObfuscatedCode').value = obfuscatedCode;
@@ -841,7 +879,13 @@ function obfuscateSqlCode() {
     updateSqlUsedMappingDisplay();
     const totalReplaced = sqlMapping.size + sqlStringReplaceMapping.size;
     document.getElementById('sqlUsedMappingSection').style.display = totalReplaced > 0 ? 'block' : 'none';
-    showSqlStatus(`SQL Code erfolgreich verschleiert! ${totalReplaced} Elemente ersetzt (${sqlStringReplaceMapping.size} Strings, ${sqlMapping.size} SQL-Elemente).`);
+
+    const warning = unreplacedWarning(deselectedOriginals);
+    const hasIssue = replacedCount === 0 || warning;
+    showSqlStatus(
+        `SQL Code ${replacedCount === 0 ? 'NICHT verschleiert' : 'verschleiert'}! ${replacedCount} Ersetzung(en) vorgenommen (${sqlStringReplaceMapping.size} Strings, ${sqlMapping.size} SQL-Elemente).${warning}`,
+        hasIssue ? 'error' : 'success'
+    );
     saveState();
 }
 
@@ -861,14 +905,21 @@ function deobfuscateSqlCode() {
         return;
     }
 
+    let restoredCount = 0;
+    const countMatch = () => restoredCount++;
+
     // Schritt 1: SQL-Elemente zurück, Schritt 2: String-Replace zurück.
-    let finalCode = Core.reverseReplacements(aiResponse, mapToReverse(reverseSqlMapping));
-    finalCode = Core.reverseReplacements(finalCode, mapToReverse(reverseSqlStringReplaceMapping));
+    let finalCode = Core.reverseReplacements(aiResponse, mapToReverse(reverseSqlMapping), countMatch);
+    finalCode = Core.reverseReplacements(finalCode, mapToReverse(reverseSqlStringReplaceMapping), countMatch);
 
     document.getElementById('sqlFinalCode').value = finalCode;
     document.getElementById('sqlFinalSection').style.display = 'block';
-    const totalRestored = reverseSqlMapping.size + reverseSqlStringReplaceMapping.size;
-    showSqlStatus(`SQL Code erfolgreich zurückverwandelt! ${totalRestored} Elemente wiederhergestellt.`);
+    showSqlStatus(
+        restoredCount === 0
+            ? 'Zurückverwandeln ohne Treffer: Kein bekannter Platzhalter in der KI-Antwort gefunden.'
+            : `SQL Code erfolgreich zurückverwandelt! ${restoredCount} Ersetzung(en) vorgenommen.`,
+        restoredCount === 0 ? 'error' : 'success'
+    );
     saveState();
 }
 
