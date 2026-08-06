@@ -118,10 +118,15 @@ npm test      # Core-, Integrations- und Smoke-Tests
 ```
 
 - `test/core.test.js` – reine Logik (DOM-frei, schnell)
-- `test/integration.test.js` – DOM-Schicht via jsdom (inkl. Sicherheits-Edge-Cases)
-- `test/smoke.test.js` – lädt die echte `obfuscator.html` end-to-end
+- `test/integration.test.js` – DOM-Schicht via jsdom (inkl. Sicherheits-Edge-Cases, Export/Import)
+- `test/persistence.test.js` – Speichern/Laden (localStorage) end-to-end, ohne Mock
+- `test/smoke.test.js` – lädt die echte `obfuscator.html`, prüft data-action-Delegation
+- `test/layout.test.js` – Playwright/Chromium: Mobile-Layout, horizontales Scrollen, Toast-Überlagerung, Konsolenfehler
 
-Zusätzlich kann `tests.html` direkt im Browser geöffnet werden.
+```bash
+npm run lint      # ESLint
+npm run coverage  # Coverage-Bericht (c8) für obfuscator.js/obfuscator-core.js
+```
 
 ## 📂 Projektstruktur
 
@@ -131,7 +136,6 @@ Obfuscator/
 ├── obfuscator.css           # Styles
 ├── obfuscator-core.js       # Reine Obfuskierungslogik (DOM-frei, testbar)
 ├── obfuscator.js            # DOM-/UI-/Persistenz-Schicht
-├── tests.html               # Browser-Testseite (manuelle Tests im Browser)
 ├── test/                    # Node-Tests (core, integration, smoke)
 │   ├── core.test.js         # Logik-Tests (kein DOM)
 │   ├── integration.test.js  # DOM-Schicht via jsdom

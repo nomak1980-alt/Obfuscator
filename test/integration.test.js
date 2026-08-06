@@ -679,6 +679,66 @@ console.log('\n# U8 – Filter/Zähler für die Auswahltabelle');
         eq($('csharpSelectionCounter').textContent, '2 von 3 ausgewählt'));
 })();
 
-console.log(`\n──────────────────────────────────────────`);
-console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);
-process.exit(fail ? 1 : 0);
+console.log('\n# T2 – isValidImportState (Format-Validierung)');
+(() => {
+    it('gültiger Zustand wird akzeptiert', () =>
+        assert(win.isValidImportState({ version: 1, csharp: {}, sql: {} })));
+    it('fehlendes version-Feld wird abgelehnt', () =>
+        assert(!win.isValidImportState({ csharp: {} })));
+    it('version als String wird abgelehnt', () =>
+        assert(!win.isValidImportState({ version: '1' })));
+    it('zu hohe version wird abgelehnt', () =>
+        assert(!win.isValidImportState({ version: 999 })));
+    it('null wird abgelehnt', () => assert(!win.isValidImportState(null)));
+    it('String statt Objekt wird abgelehnt', () => assert(!win.isValidImportState('nicht valide')));
+    it('gültige Map-Paare in stringReplaceMapping werden akzeptiert', () =>
+        assert(win.isValidImportState({ version: 1, csharp: { stringReplaceMapping: [['a', 'b']] } })));
+    it('verfälschte Map-Paare (kein String) werden abgelehnt', () =>
+        assert(!win.isValidImportState({ version: 1, csharp: { stringReplaceMapping: [['a', 5]] } })));
+    it('verfälschte Map-Paare (falsche Arity) werden abgelehnt', () =>
+        assert(!win.isValidImportState({ version: 1, sql: { sqlMapping: [['a']] } })));
+})();
+
+console.log('\n# T2 – importState (File/FileReader)');
+const importTestDone = (() => {
+    resetCsharp();
+    resetSql();
+    win.localStorage.clear();
+
+    const validState = JSON.stringify({ version: 1, csharp: { originalCode: 'imported code' }, sql: {} });
+    const file = new win.File([validState], 'backup.json', { type: 'application/json' });
+    win.confirm = () => true;
+    const fakeEvent = { target: { files: [file], value: 'backup.json' } };
+
+    // importState() liest asynchron per FileReader – auf das Ergebnis warten.
+    return new Promise(resolve => {
+        win.importState(fakeEvent);
+        setTimeout(() => {
+            it('importState() übernimmt gültiges Backup in originalCode', () =>
+                eq($('originalCode').value, 'imported code'));
+
+            // Zu große Datei wird abgelehnt (10 MB Limit).
+            const bigContent = 'a'.repeat(11 * 1024 * 1024);
+            const bigFile = new win.File([bigContent], 'big.json', { type: 'application/json' });
+            const before = $('originalCode').value;
+            win.importState({ target: { files: [bigFile], value: 'big.json' } });
+            it('importState() lehnt Dateien über 10 MB ab (Inhalt unverändert)', () =>
+                eq($('originalCode').value, before));
+
+            // Ungültiges JSON wird abgelehnt.
+            const badFile = new win.File(['{not json'], 'bad.json', { type: 'application/json' });
+            win.importState({ target: { files: [badFile], value: 'bad.json' } });
+            setTimeout(() => {
+                it('importState() lässt originalCode bei kaputtem JSON unverändert', () =>
+                    eq($('originalCode').value, before));
+                resolve();
+            }, 20);
+        }, 20);
+    });
+})();
+
+importTestDone.then(() => {
+    console.log(`\n──────────────────────────────────────────`);
+    console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);
+    process.exit(fail ? 1 : 0);
+});

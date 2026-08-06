@@ -41,7 +41,17 @@ module.exports = [
                 module: 'writable',
                 process: 'readonly',
                 console: 'readonly',
-                __dirname: 'readonly'
+                __dirname: 'readonly',
+                setTimeout: 'readonly',
+                clearTimeout: 'readonly',
+                // Browser-Globals: tauchen in page.evaluate()-Callback-Bodies auf,
+                // die ESLint als normalen Node-Code parst, aber im Browser laufen.
+                document: 'readonly',
+                window: 'readonly',
+                getComputedStyle: 'readonly',
+                localStorage: 'readonly',
+                notifyGlobal: 'readonly',
+                showStatus: 'readonly'
             }
         },
         rules: {

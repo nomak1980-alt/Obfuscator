@@ -4,8 +4,9 @@
   "description": "Eine einfache Web-Anwendung zur Verschleierung von C# und MS SQL Code für die sichere Weitergabe an KI-Modelle.",
   "main": "obfuscator-core.js",
   "scripts": {
-    "test": "node test/core.test.js && node test/integration.test.js && node test/smoke.test.js",
-    "lint": "eslint obfuscator.js obfuscator-core.js test"
+    "test": "node test/core.test.js && node test/integration.test.js && node test/persistence.test.js && node test/smoke.test.js && node test/layout.test.js",
+    "lint": "eslint obfuscator.js obfuscator-core.js test",
+    "coverage": "c8 --reporter=text --reporter=html --include=obfuscator-core.js --include=obfuscator.js npm test"
   },
   "repository": {
     "type": "git",
@@ -25,6 +26,7 @@
   "homepage": "https://github.com/nomak1980-alt/Obfuscator#readme",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "c8": "^12.0.0",
     "eslint": "^10.8.0",
     "jsdom": "^29.1.1",
     "playwright": "^1.61.1"

@@ -373,6 +373,55 @@ it('CS_PREFIXES exportiert alle 8 Schlüssel', () => {
     keys.forEach(k => assert(C.CS_PREFIXES[k] !== undefined, 'CS_PREFIXES.' + k + ' fehlt'));
 });
 
+console.log('\n# T8 – SQL-Analyse-Bandbreite (CTE, MERGE, CREATE PROCEDURE, Subquery, INSERT, UPDATE, INDEX)');
+it('CTE (WITH ... AS) erkennt den CTE-Namen als Objekt', () => {
+    const sql = 'WITH KundenUmsatz AS (SELECT KundeId, SUM(Betrag) AS Summe FROM Bestellungen GROUP BY KundeId) SELECT * FROM KundenUmsatz';
+    const els = C.analyzeSqlElements(sql);
+    const names = els.map(e => e.element);
+    assert(names.includes('KundenUmsatz'), 'KundenUmsatz nicht erkannt: ' + names.join(', '));
+    assert(names.includes('Bestellungen'), 'Bestellungen nicht erkannt: ' + names.join(', '));
+});
+it('MERGE erkennt Ziel- und Quelltabelle', () => {
+    const sql = 'MERGE INTO ZielKunden AS t USING QuellKunden AS s ON t.Id = s.Id WHEN MATCHED THEN UPDATE SET t.Name = s.Name;';
+    const names = C.analyzeSqlElements(sql).map(e => e.element);
+    assert(names.includes('ZielKunden'), 'ZielKunden nicht erkannt: ' + names.join(', '));
+    assert(names.includes('QuellKunden'), 'QuellKunden nicht erkannt: ' + names.join(', '));
+});
+it('CREATE PROCEDURE erkennt den Prozedurnamen als Objekt', () => {
+    const sql = 'CREATE PROCEDURE BerechneKundenRabatt AS BEGIN SELECT 1 END';
+    const els = C.analyzeSqlElements(sql);
+    const item = els.find(e => e.element === 'BerechneKundenRabatt');
+    assert(item, 'BerechneKundenRabatt nicht erkannt: ' + els.map(e => e.element).join(', '));
+    eq(item.type, 'Objekt', 'Typ von BerechneKundenRabatt');
+});
+it('Unterabfrage: nicht-gierige SELECT...FROM greift auch innerhalb geschachtelter Klammern', () => {
+    const sql = 'SELECT * FROM Kunden WHERE KundeId IN (SELECT KundeId FROM AktiveBestellungen)';
+    const names = C.analyzeSqlElements(sql).map(e => e.element);
+    assert(names.includes('Kunden'), 'Kunden nicht erkannt: ' + names.join(', '));
+    assert(names.includes('AktiveBestellungen'), 'AktiveBestellungen (Unterabfrage) nicht erkannt: ' + names.join(', '));
+});
+it('INSERT mit Spaltenliste erkennt Tabelle und Spalten', () => {
+    const sql = 'INSERT INTO Kundenkontakte (VorName, NachName, TelefonNummer) VALUES (@v, @n, @t)';
+    const names = C.analyzeSqlElements(sql).map(e => e.element);
+    assert(names.includes('Kundenkontakte'), 'Kundenkontakte nicht erkannt: ' + names.join(', '));
+    ['VorName', 'NachName', 'TelefonNummer'].forEach(col =>
+        assert(names.includes(col), col + ' nicht erkannt: ' + names.join(', ')));
+});
+it('UPDATE ... SET erkennt Tabelle und gesetzte Spalten', () => {
+    const sql = "UPDATE Mitarbeiter SET Gehalt = 5000, Abteilung = 'Vertrieb' WHERE MitarbeiterId = 1";
+    const names = C.analyzeSqlElements(sql).map(e => e.element);
+    assert(names.includes('Mitarbeiter'), 'Mitarbeiter nicht erkannt: ' + names.join(', '));
+    assert(names.includes('Gehalt'), 'Gehalt nicht erkannt: ' + names.join(', '));
+    assert(names.includes('Abteilung'), 'Abteilung nicht erkannt: ' + names.join(', '));
+});
+it('CREATE INDEX erkennt Tabelle und indizierte Spalten', () => {
+    const sql = 'CREATE NONCLUSTERED INDEX IX_Kunden_Nachname ON Kunden (NachName, VorName)';
+    const names = C.analyzeSqlElements(sql).map(e => e.element);
+    assert(names.includes('Kunden'), 'Kunden nicht erkannt: ' + names.join(', '));
+    assert(names.includes('NachName'), 'NachName nicht erkannt: ' + names.join(', '));
+    assert(names.includes('VorName'), 'VorName nicht erkannt: ' + names.join(', '));
+});
+
 console.log('\n# SQL Alias-Filter');
 it('einbuchstabige Aliases werden nicht als Elemente erkannt', () => {
     const sql = 'SELECT u.UserId FROM Users u INNER JOIN Orders o ON u.UserId = o.OrderId';

@@ -261,9 +261,7 @@ button:active {
     margin: 10px 0;
     color: #d97706;
     font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    line-height: 1.6;
 }
 
 .mapping-selection-table {
