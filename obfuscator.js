@@ -855,11 +855,11 @@ function obfuscateSqlCode() {
     reverseSqlStringReplaceMapping = buildReverse(sqlStringReplaceMapping);
     let obfuscatedCode = Core.applyReplacements(originalCode, strEntries, countMatch);
 
-    // Schritt 2: Ausgewählte SQL-Elemente verschleiern
-    const selection = sqlCheckboxes.map(cb => ({
-        element: cb.dataset.element, type: cb.dataset.type
-    }));
-    const assigned = Core.assignSqlPlaceholders(selection, obfuscatedCode);
+    // Schritt 2: Ausgewählte SQL-Elemente verschleiern. Die Platzhalter werden
+    // NICHT neu vergeben (das würde von der bei der Analyse angezeigten
+    // Auswahltabelle abweichen können, siehe W2) – stattdessen exakt die
+    // Platzhalter aus der Checkbox übernehmen, die der Nutzer in der Tabelle sieht.
+    const assigned = sqlCheckboxes.map(cb => ({ element: cb.dataset.element, placeholder: cb.dataset.obfuscated }));
     sqlMapping = new Map(assigned.map(a => [a.element, a.placeholder]));
     reverseSqlMapping = buildReverse(sqlMapping);
 

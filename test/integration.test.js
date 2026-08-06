@@ -514,6 +514,22 @@ console.log('\n# K3 – echte Ersetzungszähler statt Mapping-Größe');
         assert($('statusMessage').className.includes('error'), $('statusMessage').className));
 })();
 
+console.log('\n# W2 – SQL-Auswahltabelle zeigt dieselben Platzhalter wie das Ergebnis');
+(() => {
+    resetSql();
+    setVal('sqlOriginalCode', SQL_CODE);
+    ev('analyzeSqlCode()');
+    const shown = {};
+    doc.querySelectorAll('.sql-mapping-checkbox').forEach(cb => { shown[cb.dataset.element] = cb.dataset.obfuscated; });
+
+    ev('obfuscateSqlCode()');
+    const obf = $('sqlObfuscatedCode').value;
+    it('Users-Platzhalter aus der Tabelle steht tatsächlich an der Users-Stelle', () =>
+        assert(new RegExp(`FROM\\s+${shown.Users}\\b`).test(obf), `erwartet FROM ${shown.Users} in: ${obf}`));
+    it('Orders-Platzhalter aus der Tabelle steht tatsächlich an der Orders-Stelle', () =>
+        assert(new RegExp(`JOIN\\s+${shown.Orders}\\b`).test(obf), `erwartet JOIN ${shown.Orders} in: ${obf}`));
+})();
+
 console.log(`\n──────────────────────────────────────────`);
 console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);
 process.exit(fail ? 1 : 0);
