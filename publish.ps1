@@ -1,3 +1,17 @@
+$ErrorActionPreference = "Stop"
+
+Push-Location $PSScriptRoot
+try {
+    Write-Host "Fuehre Tests aus ..."
+    npm test
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Tests fehlgeschlagen (Exit-Code $LASTEXITCODE) - Publish abgebrochen."
+        exit $LASTEXITCODE
+    }
+} finally {
+    Pop-Location
+}
+
 $publishDir = Join-Path $PSScriptRoot "publish"
 
 if (Test-Path $publishDir) {
@@ -11,7 +25,8 @@ $files = @(
     "obfuscator-core.js",
     "obfuscator.js",
     "COHeader.jpg",
-    "COIcon.jpg"
+    "COIcon.jpg",
+    "README.md"
 )
 
 foreach ($file in $files) {
