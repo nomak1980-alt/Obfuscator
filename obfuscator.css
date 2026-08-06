@@ -330,7 +330,13 @@ button:active {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 30px;
+    margin-bottom: 12px;
+}
+
+.storage-hint {
+    color: #a0a0a0;
+    font-size: 12px;
+    margin-bottom: 18px;
 }
 
 .data-toolbar {

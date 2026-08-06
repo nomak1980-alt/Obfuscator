@@ -39,10 +39,20 @@ Dieser Obfuscator hilft dabei, vertrauliche Bezeichner im Code zu verschleiern, 
 ### **Persistenz & Backup**
 - Automatisches Speichern im Browser (localStorage), versioniert.
 - Export/Import des kompletten Zustands als JSON-Datei (mit Format-Validierung beim Import).
+- ⚠️ **Eingaben bleiben dauerhaft im Browser gespeichert** – Originalcode, verschleierter Code, KI-Antwort und Mapping, ohne Ablaufdatum. Bei Bedarf über „Alles Löschen“ manuell entfernen.
 
 ## 🌐 Nutzung
 
-Öffne einfach die `obfuscator.html` Datei in einem modernen Webbrowser:
+**Empfohlen:** über einen lokalen HTTP-Server öffnen statt per Doppelklick:
+
+```bash
+npx serve publish
+# oder aus dem Projektverzeichnis: npx serve .
+```
+
+Grund: `file://`-Seiten teilen sich in manchen Browsern den localStorage mit *jeder anderen* lokal geöffneten HTML-Datei – eine beliebige andere `.html`-Datei im selben Browser könnte den gespeicherten Code sonst auslesen. Ein lokaler HTTP-Ursprung (auch `localhost`) stellt echte Origin-Isolierung her.
+
+Alternativ funktioniert weiterhin der direkte Doppelklick auf `obfuscator.html` – dann gilt obiger Hinweis zur Speicherisolierung.
 
 ```bash
 # Doppelklick auf die Datei oder:
