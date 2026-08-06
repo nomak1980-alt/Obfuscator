@@ -39,11 +39,12 @@ JSDOM.fromFile(path.join(__dirname, '..', 'obfuscator.html'), {
     win.navigator.clipboard = { writeText: () => Promise.resolve() };
     win.addEventListener('load', () => {
         const doc = win.document;
+        const UI = win.ObfuscatorUI;
         const click = el => el.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
 
         // ── Zustand aufbauen: C# ────────────────────────────────────────
         doc.getElementById('originalCode').value = 'public class CustomerService { public void GetOrder(int orderId) { } }';
-        win.eval("addChip('GetOrder', csharpReplaceWords, 'stringReplaceChips')");
+        UI.addChip('GetOrder', UI._state.csharpReplaceWords, 'stringReplaceChips');
         click(doc.querySelector('[data-action="analyzeCode"]'));
         click(doc.querySelector('[data-action="obfuscateCode"]'));
         const obfBefore = doc.getElementById('obfuscatedCode').value;
@@ -58,17 +59,18 @@ JSDOM.fromFile(path.join(__dirname, '..', 'obfuscator.html'), {
         it('Vorbereitung SQL: sqlObfuscatedCode nicht leer', sqlObfBefore.length > 0);
 
         // ── Echtes saveState() (kein Mock!) ─────────────────────────────
-        win.eval('saveState()');
+        UI.saveState();
         const raw = win.localStorage.getItem('obfuscatorAppState_v1');
         it('saveState() schreibt einen Zustand in localStorage', !!raw);
 
         // ── In-Memory-Zustand zurücksetzen (simuliert frischen Seitenaufbau) ──
-        win.eval('resetCsharpFields(); resetSqlFields();');
+        UI.resetCsharpFields();
+        UI.resetSqlFields();
         it('nach Reset: obfuscatedCode leer', doc.getElementById('obfuscatedCode').value === '');
         it('nach Reset: sqlObfuscatedCode leer', doc.getElementById('sqlObfuscatedCode').value === '');
 
         // ── loadState() gegen den echten localStorage-Inhalt ────────────
-        win.eval('loadState()');
+        UI.loadState();
         it('loadState() stellt originalCode wieder her',
             doc.getElementById('originalCode').value.includes('CustomerService'));
         it('loadState() stellt obfuscatedCode byte-genau wieder her',

@@ -3,8 +3,8 @@
  * Integrationstests der DOM-Schicht (obfuscator.js + obfuscator-core.js) –
  * laufen headless via jsdom.  node test/integration.test.js
  *
- * Hinweis: Die State-Variablen (stringReplaceMapping …) sind per `let` deklariert
- * und damit keine window-Properties – Zugriff erfolgt daher über win.eval().
+ * W6: Zugriff ausschließlich über window.ObfuscatorUI (expliziter Export),
+ * kein eval() auf per `let` deklarierte Modul-interne Variablen mehr nötig.
  */
 const fs = require('fs');
 const path = require('path');
@@ -59,34 +59,16 @@ win.confirm = () => true;
 
 const ev = code => win.eval(code);
 ev(coreSrc);
-// Test-Accessor im selben Scope wie die State-Variablen anhängen, damit der
-// Harness die per `let` deklarierten Maps lesen/zurücksetzen kann.
-const ACCESSOR = `
-;window.__t = {
-  size: n => ({ stringReplaceMapping, sqlStringReplaceMapping, sqlMapping, csharpAutoMapping, csharpAutoTypeMap }[n]).size,
-  has: (n, k) => ({ stringReplaceMapping, sqlStringReplaceMapping, sqlMapping, csharpAutoMapping, csharpAutoTypeMap }[n]).has(k),
-  resetCs: () => {
-    stringReplaceMapping = new Map(); reverseStringReplaceMapping = new Map(); replacementHistory = [];
-    csharpAutoMapping = new Map(); reverseCsharpAutoMapping = new Map(); csharpAutoTypeMap = new Map();
-    csharpReplaceWords.length = 0; lastAnalyzedCsharpCode = null; hasObfuscatedCsharp = false;
-  },
-  resetSql: () => {
-    sqlMapping = new Map(); reverseSqlMapping = new Map(); sqlStringReplaceMapping = new Map();
-    reverseSqlStringReplaceMapping = new Map(); sqlReplaceWords.length = 0; lastAnalyzedSqlCode = null;
-    hasObfuscatedSql = false;
-  }
-};
-;window.__csharpWords = csharpReplaceWords;
-;window.__sqlWords = sqlReplaceWords;`;
-ev(glueSrc + '\n' + ACCESSOR);
-ev('saveState = () => {};');
+ev(glueSrc);
+const UI = win.ObfuscatorUI;
+UI._test.mockSaveState(() => {});
 win.localStorage.clear();
 
 const doc = win.document;
 const $ = id => doc.getElementById(id);
 const setVal = (id, v) => { $(id).value = v; };
-const size = name => win.__t.size(name);
-const has = (name, key) => win.__t.has(name, key);
+const size = name => UI._state[name].size;
+const has = (name, key) => UI._state[name].has(key);
 
 let pass = 0, fail = 0;
 function it(name, fn) {
@@ -99,7 +81,7 @@ function assert(c, msg) { if (!c) throw new Error(msg || 'Assertion fehlgeschlag
 function resetCsharp() {
     ['originalCode', 'obfuscatedCode', 'aiResponse', 'finalCode']
         .forEach(id => setVal(id, ''));
-    win.__t.resetCs();
+    UI._test.resetCsharp();
     ['csharpMappingSelectionSection', 'obfuscatedSection', 'aiResponseSection', 'finalSection']
         .forEach(id => { $(id).style.display = 'none'; });
     $('csharpMappingSelectionContainer').innerHTML = '';
@@ -108,12 +90,12 @@ function resetCsharp() {
 }
 function resetCsharpAuto() {
     resetCsharp();
-    win.__t.resetCs();
+    UI._test.resetCsharp();
 }
 function resetSql() {
     ['sqlOriginalCode', 'sqlObfuscatedCode', 'sqlAiResponse', 'sqlFinalCode']
         .forEach(id => setVal(id, ''));
-    win.__t.resetSql();
+    UI._test.resetSql();
     ['sqlMappingSelectionSection', 'sqlObfuscatedSection', 'sqlAiResponseSection', 'sqlFinalSection']
         .forEach(id => { $(id).style.display = 'none'; });
     $('sqlMappingSelectionContainer').innerHTML = '';
@@ -147,10 +129,10 @@ console.log('\n# C# – Analyse + voller Durchlauf');
 (() => {
     resetCsharp();
     setVal('originalCode', CSHARP_CODE);
-    ev("addChip('CustomerService', window.__csharpWords, 'stringReplaceChips')");
-    ev("addChip('GetCustomer', window.__csharpWords, 'stringReplaceChips')");
-    ev("addChip('userId', window.__csharpWords, 'stringReplaceChips')");
-    ev('analyzeCode()');
+    UI.addChip('CustomerService', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.addChip('GetCustomer', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.addChip('userId', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.analyzeCode();
 
     it('erkennt mindestens 3 Elemente', () => assert(size('stringReplaceMapping') >= 3, `Gefunden: ${size('stringReplaceMapping')}`));
     it('CustomerService gefunden', () => assert(has('stringReplaceMapping', 'CustomerService')));
@@ -162,7 +144,7 @@ console.log('\n# C# – Analyse + voller Durchlauf');
     });
     it('alle Checkboxen angehakt', () => assert(Array.from(doc.querySelectorAll('.csharp-mapping-checkbox')).every(cb => cb.checked)));
 
-    ev('obfuscateCode()');
+    UI.obfuscateCode();
     const obf = $('obfuscatedCode').value;
     it('keine Original-Bezeichner mehr im verschleierten Code', () => {
         assert(!obf.includes('CustomerService') && !obf.includes('GetCustomer') && !/\buserId\b/.test(obf), obf);
@@ -170,7 +152,7 @@ console.log('\n# C# – Analyse + voller Durchlauf');
     it('STR_PLACEHOLDER-Tokens vorhanden', () => assert(obf.includes('STR_PLACEHOLDER_')));
 
     setVal('aiResponse', obf);
-    ev('deobfuscateCode()');
+    UI.deobfuscateCode();
     it('Round-Trip byte-genau identisch', () => eq($('finalCode').value, CSHARP_CODE));
     it('finalSection sichtbar', () => eq($('finalSection').style.display, 'block'));
 })();
@@ -179,7 +161,7 @@ console.log('\n# C# – Auto-Analyse Integration');
 (() => {
     resetCsharpAuto();
     setVal('originalCode', 'public class CustomerService { public void GetOrder(int orderId) { } }');
-    ev('analyzeCode()');
+    UI.analyzeCode();
 
     it('Auto-Analyse: Auswahl-Sektion sichtbar', () => {
         eq($('csharpMappingSelectionSection').style.display, 'block', 'csharpMappingSelectionSection');
@@ -206,8 +188,8 @@ console.log('\n# C# – Auto-Analyse: Verschleiern + Round-Trip');
     resetCsharpAuto();
     const original = 'public class CustomerService { public void GetOrder(int orderId) { } }';
     setVal('originalCode', original);
-    ev('analyzeCode()');
-    ev('obfuscateCode()');
+    UI.analyzeCode();
+    UI.obfuscateCode();
 
     const obf = $('obfuscatedCode').value;
     it('verschleierter Code enthält keinen Klassenname mehr', () => {
@@ -218,7 +200,7 @@ console.log('\n# C# – Auto-Analyse: Verschleiern + Round-Trip');
     });
 
     setVal('aiResponse', obf);
-    ev('deobfuscateCode()');
+    UI.deobfuscateCode();
     it('Zurückverwandlung ergibt exakt den Original-Code', () => {
         eq($('finalCode').value, original, 'Round-Trip fehlgeschlagen');
     });
@@ -229,8 +211,8 @@ console.log('\n# C# – Gemischter Workflow: String-Replace + Auto-Analyse');
     resetCsharpAuto();
     const original = 'public class CustomerService { public string GetOrder(int orderId) { return null; } }';
     setVal('originalCode', original);
-    ev("addChip('GetOrder', window.__csharpWords, 'stringReplaceChips')");
-    ev('analyzeCode()');
+    UI.addChip('GetOrder', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.analyzeCode();
 
     it('Gemischt: Tabelle enthält Typ "String" (manuell)', () => {
         const cbs = Array.from(doc.querySelectorAll('.csharp-mapping-checkbox'));
@@ -241,7 +223,7 @@ console.log('\n# C# – Gemischter Workflow: String-Replace + Auto-Analyse');
         assert(rows.some(r => r.cells[1] && r.cells[1].textContent === 'Klasse'), 'Kein Klasse-Typ');
     });
 
-    ev('obfuscateCode()');
+    UI.obfuscateCode();
     const obf = $('obfuscatedCode').value;
     it('Gemischt: weder CustomerService noch GetOrder im verschleierten Code', () => {
         assert(!obf.includes('CustomerService') && !obf.includes('GetOrder'),
@@ -249,7 +231,7 @@ console.log('\n# C# – Gemischter Workflow: String-Replace + Auto-Analyse');
     });
 
     setVal('aiResponse', obf);
-    ev('deobfuscateCode()');
+    UI.deobfuscateCode();
     it('Gemischt: Round-Trip ergibt exakt den Original-Code', () => {
         eq($('finalCode').value, original, 'Round-Trip fehlgeschlagen');
     });
@@ -260,7 +242,7 @@ console.log('\n# C# – Auto-Analyse ohne Wörter im String-Replace');
     resetCsharpAuto();
     setVal('originalCode', 'public class OrderRepository { private readonly ILogger _logger; }');
     // Keine String-Replace-Wörter eingetragen
-    ev('analyzeCode()');
+    UI.analyzeCode();
     it('Analyse ohne manuelle Wörter: Auswahl-Sektion trotzdem sichtbar', () => {
         eq($('csharpMappingSelectionSection').style.display, 'block');
     });
@@ -274,7 +256,7 @@ console.log('\n# C# – Deobfuskierung ohne Mapping zeigt Fehler');
 (() => {
     resetCsharpAuto();
     setVal('aiResponse', 'CS_CLASS_1 result');
-    ev('deobfuscateCode()');
+    UI.deobfuscateCode();
     it('Kein Mapping → Fehlerstatus', () => {
         assert($('statusMessage').className.includes('error'), $('statusMessage').textContent);
     });
@@ -284,23 +266,23 @@ console.log('\n# C# – Teilauswahl + Abbruchfälle');
 (() => {
     resetCsharp();
     setVal('originalCode', CSHARP_CODE);
-    ev("addChip('CustomerService', window.__csharpWords, 'stringReplaceChips')");
-    ev("addChip('GetCustomer', window.__csharpWords, 'stringReplaceChips')");
-    ev("addChip('userId', window.__csharpWords, 'stringReplaceChips')");
-    ev('analyzeCode()');
+    UI.addChip('CustomerService', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.addChip('GetCustomer', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.addChip('userId', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.analyzeCode();
     doc.querySelectorAll('.csharp-mapping-checkbox').forEach(cb => cb.checked = false);
     doc.querySelector('.csharp-mapping-checkbox').checked = true;
-    ev('obfuscateCode()');
+    UI.obfuscateCode();
     it('Mapping enthält genau 1 Eintrag', () => eq(size('stringReplaceMapping'), 1));
     setVal('aiResponse', $('obfuscatedCode').value);
-    ev('deobfuscateCode()');
+    UI.deobfuscateCode();
     it('Teilauswahl Round-Trip identisch', () => eq($('finalCode').value, CSHARP_CODE));
 })();
 
 (() => {
     resetCsharp();
     setVal('originalCode', CSHARP_CODE);
-    ev('analyzeCode()');
+    UI.analyzeCode();
     it('ohne Wörter: keine String-Replace-Mappings', () => eq(size('stringReplaceMapping'), 0));
     it('ohne Wörter: Auto-Analyse zeigt Sektion (C#-Elemente erkannt)', () => eq($('csharpMappingSelectionSection').style.display, 'block'));
 })();
@@ -308,10 +290,10 @@ console.log('\n# C# – Teilauswahl + Abbruchfälle');
 (() => {
     resetCsharp();
     setVal('originalCode', CSHARP_CODE);
-    ev("addChip('CustomerService', window.__csharpWords, 'stringReplaceChips')");
-    ev('analyzeCode()');
+    UI.addChip('CustomerService', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.analyzeCode();
     doc.querySelectorAll('.csharp-mapping-checkbox').forEach(cb => cb.checked = false);
-    ev('obfuscateCode()');
+    UI.obfuscateCode();
     it('keine Auswahl: obfuscatedCode bleibt leer', () => eq($('obfuscatedCode').value, ''));
     it('keine Auswahl: obfuscatedSection versteckt', () => assert($('obfuscatedSection').style.display !== 'block'));
 })();
@@ -320,7 +302,7 @@ console.log('\n# SQL – Analyse + voller Durchlauf');
 (() => {
     resetSql();
     setVal('sqlOriginalCode', SQL_CODE);
-    ev('analyzeSqlCode()');
+    UI.analyzeSqlCode();
     const els = Array.from(doc.querySelectorAll('.sql-mapping-checkbox')).map(cb => ({ el: cb.dataset.element, type: cb.dataset.type }));
     it('erkennt Tabelle Users', () => assert(els.some(e => e.el === 'Users'), els.map(e => e.el).join(',')));
     it('erkennt Tabelle Orders', () => assert(els.some(e => e.el === 'Orders')));
@@ -328,14 +310,14 @@ console.log('\n# SQL – Analyse + voller Durchlauf');
     it('Users ist Typ Tabelle', () => eq((els.find(e => e.el === 'Users') || {}).type, 'Tabelle'));
     it('Auswahl-Sektion sichtbar', () => eq($('sqlMappingSelectionSection').style.display, 'block'));
 
-    ev('obfuscateSqlCode()');
+    UI.obfuscateSqlCode();
     const obf = $('sqlObfuscatedCode').value;
     it('SQL-Platzhalter im Code', () => assert(obf.includes('SQL_TABLE_') || obf.includes('SQL_COL_')));
     it('Users nicht mehr im Code', () => assert(!/\bUsers\b/.test(obf)));
     it('Orders nicht mehr im Code', () => assert(!/\bOrders\b/.test(obf)));
 
     setVal('sqlAiResponse', obf);
-    ev('deobfuscateSqlCode()');
+    UI.deobfuscateSqlCode();
     it('SQL Round-Trip byte-genau', () => eq($('sqlFinalCode').value, SQL_CODE));
 })();
 
@@ -343,16 +325,16 @@ console.log('\n# SQL – String-Replace-Sets');
 (() => {
     resetSql();
     setVal('sqlOriginalCode', SQL_CODE);
-    ev("addChip('Users', window.__sqlWords, 'sqlStringReplaceChips')");
-    ev("addChip('Orders', window.__sqlWords, 'sqlStringReplaceChips')");
-    ev("addChip('UserId', window.__sqlWords, 'sqlStringReplaceChips')");
-    ev('analyzeSqlCode()');
+    UI.addChip('Users', UI._state.sqlReplaceWords, 'sqlStringReplaceChips');
+    UI.addChip('Orders', UI._state.sqlReplaceWords, 'sqlStringReplaceChips');
+    UI.addChip('UserId', UI._state.sqlReplaceWords, 'sqlStringReplaceChips');
+    UI.analyzeSqlCode();
     it('mind. 3 String-Replace-Mappings', () => assert(size('sqlStringReplaceMapping') >= 3, `${size('sqlStringReplaceMapping')}`));
     it('Users im SR-Mapping', () => assert(has('sqlStringReplaceMapping', 'Users')));
 
-    ev('obfuscateSqlCode()');
+    UI.obfuscateSqlCode();
     setVal('sqlAiResponse', $('sqlObfuscatedCode').value);
-    ev('deobfuscateSqlCode()');
+    UI.deobfuscateSqlCode();
     it('SQL+SR Round-Trip byte-genau', () => eq($('sqlFinalCode').value, SQL_CODE));
 })();
 
@@ -360,8 +342,8 @@ console.log('\n# Sicherheit & Edge-Cases (DOM)');
 (() => {
     resetCsharp();
     setVal('originalCode', `var x = "<img src=x onerror=alert(1)>";`);
-    ev("addChip('<img src=x onerror=alert(1)>', window.__csharpWords, 'stringReplaceChips')");
-    ev('analyzeCode()');
+    UI.addChip('<img src=x onerror=alert(1)>', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.analyzeCode();
     it('XSS: kein <img>-Element in der Auswahltabelle', () =>
         assert($('csharpMappingSelectionContainer').querySelector('img') === null, 'img-Element injiziert!'));
 })();
@@ -370,10 +352,10 @@ console.log('\n# Sicherheit & Edge-Cases (DOM)');
     resetCsharp();
     const code = `int PRICE = 5;`;
     setVal('originalCode', code);
-    ev("addChip('PRICE', window.__csharpWords, 'stringReplaceChips')");
-    ev('analyzeCode()'); ev('obfuscateCode()');
+    UI.addChip('PRICE', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.analyzeCode(); UI.obfuscateCode();
     setVal('aiResponse', $('obfuscatedCode').value);
-    ev('deobfuscateCode()');
+    UI.deobfuscateCode();
     it('$-sicher: Round-Trip exakt', () => eq($('finalCode').value, code));
 })();
 
@@ -381,12 +363,12 @@ console.log('\n# Sicherheit & Edge-Cases (DOM)');
     resetCsharp();
     const code = `note = "STR_PLACEHOLDER_1"; secret = Token;`;
     setVal('originalCode', code);
-    ev("addChip('Token', window.__csharpWords, 'stringReplaceChips')");
-    ev('analyzeCode()'); ev('obfuscateCode()');
+    UI.addChip('Token', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.analyzeCode(); UI.obfuscateCode();
     const obf = $('obfuscatedCode').value;
     it('Kollision: echter STR_PLACEHOLDER_1-String bleibt erhalten', () => assert(obf.includes('STR_PLACEHOLDER_1')));
     setVal('aiResponse', obf);
-    ev('deobfuscateCode()');
+    UI.deobfuscateCode();
     it('Kollision: Round-Trip identisch', () => eq($('finalCode').value, code));
 })();
 
@@ -394,13 +376,13 @@ console.log('\n# Sicherheit & Edge-Cases (DOM)');
     resetCsharp();
     const code = `Username = User.Id;`;
     setVal('originalCode', code);
-    ev("addChip('User', window.__csharpWords, 'stringReplaceChips')");
-    ev('analyzeCode()'); ev('obfuscateCode()');
+    UI.addChip('User', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.analyzeCode(); UI.obfuscateCode();
     const obf = $('obfuscatedCode').value;
     it('Teilwort: Username wird als ganzer Bezeichner mit-ersetzt', () => assert(!/User/i.test(obf), obf));
     it('Teilwort: kein zerhackter Bezeichner (Platzhalter+Rest)', () => assert(!/STR_PLACEHOLDER_\d+name/.test(obf), obf));
     setVal('aiResponse', obf);
-    ev('deobfuscateCode()');
+    UI.deobfuscateCode();
     it('Teilwort: Round-Trip identisch', () => eq($('finalCode').value, code));
 })();
 
@@ -408,14 +390,14 @@ console.log('\n# clearAll() – Cross-Tab-Schutz');
 (() => {
     resetSql();
     setVal('sqlOriginalCode', SQL_CODE);
-    ev('analyzeSqlCode()');
-    ev('obfuscateSqlCode()');
+    UI.analyzeSqlCode();
+    UI.obfuscateSqlCode();
     const sqlObf = $('sqlObfuscatedCode').value;
     // saveState ist gemockt (no-op) – SQL-State manuell in localStorage ablegen
     const fakeState = JSON.stringify({ version: 1, csharp: { originalCode: 'test' }, sql: { sqlObfuscatedCode: sqlObf } });
     win.localStorage.setItem('obfuscatorAppState_v1', fakeState);
     win.confirm = () => true;
-    ev('clearAll()');
+    UI.clearAll();
     const raw = win.localStorage.getItem('obfuscatorAppState_v1');
     const state = raw ? JSON.parse(raw) : null;
     it('clearAll() löscht nicht den SQL-State', () =>
@@ -427,14 +409,14 @@ console.log('\n# Re-Analyse-Schutz');
 (() => {
     resetCsharp();
     setVal('originalCode', CSHARP_CODE);
-    ev("addChip('CustomerService', window.__csharpWords, 'stringReplaceChips')");
-    ev('analyzeCode()');
-    ev('obfuscateCode()');
+    UI.addChip('CustomerService', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.analyzeCode();
+    UI.obfuscateCode();
     const firstObf = $('obfuscatedCode').value;
 
     win.confirm = () => false;
-    ev("addChip('GetCustomer', window.__csharpWords, 'stringReplaceChips')");
-    ev('analyzeCode()');
+    UI.addChip('GetCustomer', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.analyzeCode();
 
     it('Re-Analyse abgebrochen: obfuscatedCode unverändert', () =>
         eq($('obfuscatedCode').value, firstObf, 'obfuscatedCode sollte unverändert sein'));
@@ -444,28 +426,28 @@ console.log('\n# Re-Analyse-Schutz');
 
 console.log('\n# Chip-Mindestlänge');
 (() => {
-    win.__t.resetCs();
-    ev("addChip('ab', window.__csharpWords, 'stringReplaceChips')");
+    UI._test.resetCsharp();
+    UI.addChip('ab', UI._state.csharpReplaceWords, 'stringReplaceChips');
     it('Chip mit 2 Zeichen wird nicht hinzugefügt', () =>
-        assert(!win.__csharpWords.includes('ab'), 'ab fälschlicherweise in csharpReplaceWords'));
+        assert(!UI._state.csharpReplaceWords.includes('ab'), 'ab fälschlicherweise in csharpReplaceWords'));
 
-    ev("addChip('a', window.__csharpWords, 'stringReplaceChips')");
+    UI.addChip('a', UI._state.csharpReplaceWords, 'stringReplaceChips');
     it('Chip mit 1 Zeichen wird nicht hinzugefügt', () =>
-        assert(!win.__csharpWords.includes('a'), 'a fälschlicherweise in csharpReplaceWords'));
+        assert(!UI._state.csharpReplaceWords.includes('a'), 'a fälschlicherweise in csharpReplaceWords'));
 
-    ev("addChip('abc', window.__csharpWords, 'stringReplaceChips')");
+    UI.addChip('abc', UI._state.csharpReplaceWords, 'stringReplaceChips');
     it('Chip mit 3 Zeichen wird akzeptiert', () =>
-        assert(win.__csharpWords.includes('abc'), 'abc fehlt in csharpReplaceWords'));
+        assert(UI._state.csharpReplaceWords.includes('abc'), 'abc fehlt in csharpReplaceWords'));
 })();
 
 console.log('\n# K1 – Verschleiern nach Code-Änderung wird abgelehnt');
 (() => {
     resetCsharp();
     setVal('originalCode', CSHARP_CODE);
-    ev("addChip('CustomerService', window.__csharpWords, 'stringReplaceChips')");
-    ev('analyzeCode()');
+    UI.addChip('CustomerService', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.analyzeCode();
     setVal('originalCode', 'public class GeheimeKlasse { }');
-    ev('obfuscateCode()');
+    UI.obfuscateCode();
     it('obfuscatedCode bleibt leer, kein Klartext-Leak', () => eq($('obfuscatedCode').value, ''));
     it('obfuscatedSection bleibt versteckt', () => assert($('obfuscatedSection').style.display !== 'block'));
     it('Fehlermeldung verlangt erneute Analyse', () =>
@@ -475,9 +457,9 @@ console.log('\n# K1 – Verschleiern nach Code-Änderung wird abgelehnt');
 (() => {
     resetSql();
     setVal('sqlOriginalCode', SQL_CODE);
-    ev('analyzeSqlCode()');
+    UI.analyzeSqlCode();
     setVal('sqlOriginalCode', 'SELECT GeheimeSpalte FROM GeheimeTabelle');
-    ev('obfuscateSqlCode()');
+    UI.obfuscateSqlCode();
     it('SQL: sqlObfuscatedCode bleibt leer, kein Klartext-Leak', () => eq($('sqlObfuscatedCode').value, ''));
     it('SQL: Fehlermeldung verlangt erneute Analyse', () =>
         assert($('sqlStatusMessage').className.includes('error'), $('sqlStatusMessage').textContent));
@@ -487,12 +469,12 @@ console.log('\n# K3 – echte Ersetzungszähler statt Mapping-Größe');
 (() => {
     resetCsharp();
     setVal('originalCode', 'public class Kundendaten { private string IBAN; }');
-    ev("addChip('IBAN', window.__csharpWords, 'stringReplaceChips')");
-    ev('analyzeCode()');
+    UI.addChip('IBAN', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.analyzeCode();
     doc.querySelectorAll('.csharp-mapping-checkbox').forEach(cb => {
         if (cb.dataset.original === 'IBAN') cb.checked = false;
     });
-    ev('obfuscateCode()');
+    UI.obfuscateCode();
     const obf = $('obfuscatedCode').value;
     it('abgewähltes IBAN bleibt im Klartext', () => assert(obf.includes('IBAN'), obf));
     it('Warnung meldet abgewähltes IBAN', () =>
@@ -504,11 +486,11 @@ console.log('\n# K3 – echte Ersetzungszähler statt Mapping-Größe');
 (() => {
     resetCsharp();
     setVal('originalCode', CSHARP_CODE);
-    ev("addChip('CustomerService', window.__csharpWords, 'stringReplaceChips')");
-    ev('analyzeCode()');
-    ev('obfuscateCode()');
+    UI.addChip('CustomerService', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.analyzeCode();
+    UI.obfuscateCode();
     setVal('aiResponse', 'Ich kann dir dabei leider nicht helfen.');
-    ev('deobfuscateCode()');
+    UI.deobfuscateCode();
     it('Zurückverwandeln ohne Treffer meldet 0 statt falscher Erfolgszahl', () =>
         assert(!/erfolgreich zurückverwandelt/.test($('statusMessage').textContent), $('statusMessage').textContent));
     it('Zurückverwandeln ohne Treffer ist Fehlerstatus', () =>
@@ -519,11 +501,11 @@ console.log('\n# W2 – SQL-Auswahltabelle zeigt dieselben Platzhalter wie das E
 (() => {
     resetSql();
     setVal('sqlOriginalCode', SQL_CODE);
-    ev('analyzeSqlCode()');
+    UI.analyzeSqlCode();
     const shown = {};
     doc.querySelectorAll('.sql-mapping-checkbox').forEach(cb => { shown[cb.dataset.element] = cb.dataset.obfuscated; });
 
-    ev('obfuscateSqlCode()');
+    UI.obfuscateSqlCode();
     const obf = $('sqlObfuscatedCode').value;
     it('Users-Platzhalter aus der Tabelle steht tatsächlich an der Users-Stelle', () =>
         assert(new RegExp(`FROM\\s+${shown.Users}\\b`).test(obf), `erwartet FROM ${shown.Users} in: ${obf}`));
@@ -535,9 +517,9 @@ console.log('\n# K2 – Warnung bei Geheimnismustern im Ergebnis');
 (() => {
     resetCsharp();
     setVal('originalCode', 'private const string CONN = "Server=prod-sql01;User=sa;Password=Geheim123;";');
-    ev("addChip('CONN', window.__csharpWords, 'stringReplaceChips')");
-    ev('analyzeCode()');
-    ev('obfuscateCode()');
+    UI.addChip('CONN', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.analyzeCode();
+    UI.obfuscateCode();
     it('Warnung erwähnt Geheimnisse im Klartext', () =>
         assert(/Zugangsdaten|Geheimnisse/.test($('statusMessage').textContent), $('statusMessage').textContent));
     it('Warnstatus ist error', () =>
@@ -555,13 +537,13 @@ console.log('\n# W1 – fehlender Zweig beim Laden/Importieren wird aktiv geleer
         sql: { sqlOriginalCode: 'SELECT GeheimeSpalte FROM GeheimeTabelle' }
     });
     win.localStorage.setItem('obfuscatorAppState_v1', fullState);
-    ev('loadState()');
+    UI.loadState();
     it('Vorbereitung: SQL-Code ist geladen', () => eq($('sqlOriginalCode').value, 'SELECT GeheimeSpalte FROM GeheimeTabelle'));
 
     // Backup ohne sql-Zweig importieren (wie bei importState()).
     const partialState = JSON.stringify({ version: 1, csharp: { originalCode: 'class B {}' } });
     win.localStorage.setItem('obfuscatorAppState_v1', partialState);
-    ev('loadState()');
+    UI.loadState();
     it('fehlender SQL-Zweig leert das SQL-Textfeld statt es stehen zu lassen', () =>
         eq($('sqlOriginalCode').value, '', 'sqlOriginalCode sollte nach fehlendem Zweig leer sein'));
     it('C#-Zweig wird trotzdem korrekt geladen', () => eq($('originalCode').value, 'class B {}'));
@@ -575,20 +557,20 @@ console.log('\n# W4 – kurze Chips überleben Laden/Importieren');
         csharp: { originalCode: '', stringReplaceWords: ['id', 'PLZ', 'Kunde'] }
     });
     win.localStorage.setItem('obfuscatorAppState_v1', stateWithShortWord);
-    ev('loadState()');
+    UI.loadState();
     it('kurzes Wort "id" (2 Zeichen) bleibt beim Laden erhalten', () =>
-        assert(win.__csharpWords.includes('id'), win.__csharpWords.join(',')));
+        assert(UI._state.csharpReplaceWords.includes('id'), UI._state.csharpReplaceWords.join(',')));
     it('normale Wörter bleiben ebenfalls erhalten', () =>
-        assert(win.__csharpWords.includes('PLZ') && win.__csharpWords.includes('Kunde'), win.__csharpWords.join(',')));
+        assert(UI._state.csharpReplaceWords.includes('PLZ') && UI._state.csharpReplaceWords.includes('Kunde'), UI._state.csharpReplaceWords.join(',')));
 })();
 
 console.log('\n# R2 – Zurückverwandeln ohne vorheriges Verschleiern wird blockiert');
 (() => {
     resetCsharp();
     setVal('originalCode', 'public class CustomerService { public void GetOrder(int orderId) { } }');
-    ev('analyzeCode()'); // Auto-Analyse befuellt csharpAutoMapping bereits, OHNE zu verschleiern
+    UI.analyzeCode(); // Auto-Analyse befuellt csharpAutoMapping bereits, OHNE zu verschleiern
     setVal('aiResponse', 'CS_CLASS_1 result');
-    ev('deobfuscateCode()');
+    UI.deobfuscateCode();
     it('finalCode bleibt leer (kein unbestaetigtes Mapping angewendet)', () => eq($('finalCode').value, ''));
     it('Fehlermeldung statt stillem Erfolg', () =>
         assert($('statusMessage').className.includes('error'), $('statusMessage').className));
@@ -597,9 +579,9 @@ console.log('\n# R2 – Zurückverwandeln ohne vorheriges Verschleiern wird bloc
 (() => {
     resetSql();
     setVal('sqlOriginalCode', SQL_CODE);
-    ev('analyzeSqlCode()');
+    UI.analyzeSqlCode();
     setVal('sqlAiResponse', 'SQL_TABLE_1 result');
-    ev('deobfuscateSqlCode()');
+    UI.deobfuscateSqlCode();
     it('SQL: sqlFinalCode bleibt leer', () => eq($('sqlFinalCode').value, ''));
     it('SQL: Fehlermeldung statt stillem Erfolg', () =>
         assert($('sqlStatusMessage').className.includes('error'), $('sqlStatusMessage').className));
@@ -609,12 +591,12 @@ console.log('\n# R3 – zurückgebliebene Platzhalter nach dem Zurückverwandeln
 (() => {
     resetCsharp();
     setVal('originalCode', 'public class CustomerService { public void GetOrder(int orderId) { } }');
-    ev('analyzeCode()');
-    ev('obfuscateCode()');
+    UI.analyzeCode();
+    UI.obfuscateCode();
     // KI-Antwort simuliert: ein Platzhalter wird zusätzlich unverändert im Text erwähnt.
     const obf = $('obfuscatedCode').value;
     setVal('aiResponse', obf + '\n// Hinweis: CS_CLASS_99 kommt hier nicht im Mapping vor');
-    ev('deobfuscateCode()');
+    UI.deobfuscateCode();
     it('Warnung meldet übrig gebliebenen Platzhalter', () =>
         assert($('statusMessage').textContent.includes('CS_CLASS_99'), $('statusMessage').textContent));
     it('Warnstatus ist error', () =>
@@ -625,33 +607,32 @@ console.log('\n# R4 – csharpAutoTypeMap wird beim Verschleiern mit der Auswahl
 (() => {
     resetCsharpAuto();
     setVal('originalCode', 'public class CustomerService { public void GetOrder(int orderId) { } }');
-    ev('analyzeCode()');
+    UI.analyzeCode();
     // 'orderId' (Parameter) abwählen, nur die Klasse bleibt ausgewählt.
     doc.querySelectorAll('.csharp-mapping-checkbox').forEach(cb => {
         if (cb.dataset.original === 'orderId') cb.checked = false;
     });
-    ev('obfuscateCode()');
+    UI.obfuscateCode();
     it('csharpAutoTypeMap enthält nur noch ausgewählte Elemente', () =>
-        assert(!win.__t.has('csharpAutoTypeMap', 'orderId'), 'orderId sollte nach Abwahl nicht mehr in csharpAutoTypeMap stehen'));
+        assert(!UI._state.csharpAutoTypeMap.has('orderId'), 'orderId sollte nach Abwahl nicht mehr in csharpAutoTypeMap stehen'));
     it('csharpAutoTypeMap enthält CustomerService weiterhin', () =>
-        assert(win.__t.has('csharpAutoTypeMap', 'CustomerService'), 'CustomerService fehlt in csharpAutoTypeMap'));
+        assert(UI._state.csharpAutoTypeMap.has('CustomerService'), 'CustomerService fehlt in csharpAutoTypeMap'));
 })();
 
 console.log('\n# U7 – collapsed-Zustand übersteht ein Neuladen');
 (() => {
     resetCsharp();
     setVal('originalCode', CSHARP_CODE);
-    ev("addChip('CustomerService', window.__csharpWords, 'stringReplaceChips')");
-    ev('analyzeCode()');
-    ev('obfuscateCode()'); // obfuscateCode() klappt die Auswahl-Sektion ein
+    UI.addChip('CustomerService', UI._state.csharpReplaceWords, 'stringReplaceChips');
+    UI.analyzeCode();
+    UI.obfuscateCode(); // obfuscateCode() klappt die Auswahl-Sektion ein
     it('Vorbereitung: Auswahl-Sektion ist eingeklappt', () =>
         assert($('csharpMappingSelectionSection').classList.contains('collapsed')));
 
-    // saveState() ist gemockt – Sections manuell wie beim echten Speichern erfassen.
-    const sections = win.eval("captureSections(['csharpMappingSelectionSection'])");
-    win.eval(`window.__savedSections = ${JSON.stringify(sections)};`);
+    // saveState() ist gemockt – Sections direkt über die exportierte Funktion erfassen.
+    const savedSections = UI.captureSections(['csharpMappingSelectionSection']);
     $('csharpMappingSelectionSection').classList.remove('collapsed'); // simuliert Neuladen (Klasse verloren)
-    ev('applySections(window.__savedSections)');
+    UI.applySections(savedSections);
     it('collapsed-Klasse nach applySections wiederhergestellt', () =>
         assert($('csharpMappingSelectionSection').classList.contains('collapsed')));
 })();
@@ -660,13 +641,13 @@ console.log('\n# U8 – Filter/Zähler für die Auswahltabelle');
 (() => {
     resetCsharp();
     setVal('originalCode', 'public class CustomerService { public void GetOrder(int orderId) { } }');
-    ev('analyzeCode()');
+    UI.analyzeCode();
     it('Zähler zeigt "3 von 3 ausgewählt" nach der Analyse', () =>
         eq($('csharpSelectionCounter').textContent, '3 von 3 ausgewählt'));
 
-    ev("applyMappingFilter('csharpFilterInput', 'csharpFilterType', '.csharp-mapping-checkbox')");
+    UI.applyMappingFilter('csharpFilterInput', 'csharpFilterType', '.csharp-mapping-checkbox');
     setVal('csharpFilterInput', 'Order');
-    ev("applyMappingFilter('csharpFilterInput', 'csharpFilterType', '.csharp-mapping-checkbox')");
+    UI.applyMappingFilter('csharpFilterInput', 'csharpFilterType', '.csharp-mapping-checkbox');
     const visible = Array.from(doc.querySelectorAll('#csharpMappingSelectionContainer tbody tr'))
         .filter(r => !r.classList.contains('filtered-out'))
         .map(r => r.querySelector('.original').textContent);
@@ -674,7 +655,7 @@ console.log('\n# U8 – Filter/Zähler für die Auswahltabelle');
         assert(!visible.includes('CustomerService') && visible.includes('GetOrder') && visible.includes('orderId'), visible.join(',')));
 
     doc.querySelectorAll('.csharp-mapping-checkbox')[0].checked = false;
-    ev("updateSelectionCounter('csharpSelectionCounter', '.csharp-mapping-checkbox')");
+    UI.updateSelectionCounter('csharpSelectionCounter', '.csharp-mapping-checkbox');
     it('Zähler aktualisiert sich nach Abwahl einer Checkbox', () =>
         eq($('csharpSelectionCounter').textContent, '2 von 3 ausgewählt'));
 })();
@@ -682,21 +663,21 @@ console.log('\n# U8 – Filter/Zähler für die Auswahltabelle');
 console.log('\n# T2 – isValidImportState (Format-Validierung)');
 (() => {
     it('gültiger Zustand wird akzeptiert', () =>
-        assert(win.isValidImportState({ version: 1, csharp: {}, sql: {} })));
+        assert(UI.isValidImportState({ version: 1, csharp: {}, sql: {} })));
     it('fehlendes version-Feld wird abgelehnt', () =>
-        assert(!win.isValidImportState({ csharp: {} })));
+        assert(!UI.isValidImportState({ csharp: {} })));
     it('version als String wird abgelehnt', () =>
-        assert(!win.isValidImportState({ version: '1' })));
+        assert(!UI.isValidImportState({ version: '1' })));
     it('zu hohe version wird abgelehnt', () =>
-        assert(!win.isValidImportState({ version: 999 })));
-    it('null wird abgelehnt', () => assert(!win.isValidImportState(null)));
-    it('String statt Objekt wird abgelehnt', () => assert(!win.isValidImportState('nicht valide')));
+        assert(!UI.isValidImportState({ version: 999 })));
+    it('null wird abgelehnt', () => assert(!UI.isValidImportState(null)));
+    it('String statt Objekt wird abgelehnt', () => assert(!UI.isValidImportState('nicht valide')));
     it('gültige Map-Paare in stringReplaceMapping werden akzeptiert', () =>
-        assert(win.isValidImportState({ version: 1, csharp: { stringReplaceMapping: [['a', 'b']] } })));
+        assert(UI.isValidImportState({ version: 1, csharp: { stringReplaceMapping: [['a', 'b']] } })));
     it('verfälschte Map-Paare (kein String) werden abgelehnt', () =>
-        assert(!win.isValidImportState({ version: 1, csharp: { stringReplaceMapping: [['a', 5]] } })));
+        assert(!UI.isValidImportState({ version: 1, csharp: { stringReplaceMapping: [['a', 5]] } })));
     it('verfälschte Map-Paare (falsche Arity) werden abgelehnt', () =>
-        assert(!win.isValidImportState({ version: 1, sql: { sqlMapping: [['a']] } })));
+        assert(!UI.isValidImportState({ version: 1, sql: { sqlMapping: [['a']] } })));
 })();
 
 console.log('\n# T2 – importState (File/FileReader)');
@@ -712,7 +693,7 @@ const importTestDone = (() => {
 
     // importState() liest asynchron per FileReader – auf das Ergebnis warten.
     return new Promise(resolve => {
-        win.importState(fakeEvent);
+        UI.importState(fakeEvent);
         setTimeout(() => {
             it('importState() übernimmt gültiges Backup in originalCode', () =>
                 eq($('originalCode').value, 'imported code'));
@@ -721,13 +702,13 @@ const importTestDone = (() => {
             const bigContent = 'a'.repeat(11 * 1024 * 1024);
             const bigFile = new win.File([bigContent], 'big.json', { type: 'application/json' });
             const before = $('originalCode').value;
-            win.importState({ target: { files: [bigFile], value: 'big.json' } });
+            UI.importState({ target: { files: [bigFile], value: 'big.json' } });
             it('importState() lehnt Dateien über 10 MB ab (Inhalt unverändert)', () =>
                 eq($('originalCode').value, before));
 
             // Ungültiges JSON wird abgelehnt.
             const badFile = new win.File(['{not json'], 'bad.json', { type: 'application/json' });
-            win.importState({ target: { files: [badFile], value: 'bad.json' } });
+            UI.importState({ target: { files: [badFile], value: 'bad.json' } });
             setTimeout(() => {
                 it('importState() lässt originalCode bei kaputtem JSON unverändert', () =>
                     eq($('originalCode').value, before));

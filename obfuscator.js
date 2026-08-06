@@ -3,7 +3,13 @@
  * Die eigentliche Obfuskierungslogik liegt in obfuscator-core.js (ObfuscatorCore),
  * das DOM-frei und damit isoliert testbar ist. Diese Datei kümmert sich nur um
  * DOM-Lesen/-Schreiben, Persistenz (localStorage) und Statusmeldungen.
+ *
+ * W6: Der gesamte Modul-Zustand lebt als Closure-Variablen in dieser IIFE statt
+ * als globale `let`-Bindings. Nach außen (Tests, künftige Erweiterungen) wird
+ * ausschließlich über window.ObfuscatorUI zugegriffen (siehe Export am Ende).
  */
+(function () {
+    'use strict';
 
 // ── State ─────────────────────────────────────────────────────────────────
 // Vorwärts-Maps + History. Reverse-Maps werden NICHT persistiert, sondern bei
@@ -54,6 +60,9 @@ function confirmLargeInput(code) {
 }
 let saveTimer = null;
 let restoring = false;
+// W6: Test-Seam – erlaubt Tests, saveState() gezielt zu neutralisieren, ohne
+// dass die IIFE ihren gesamten Zustand nach außen exponieren muss.
+let saveStateOverride = null;
 
 function buildReverse(map) {
     const rev = new Map();
@@ -164,6 +173,10 @@ function captureSections(ids) {
 }
 
 function saveState() {
+    return saveStateOverride ? saveStateOverride() : saveStateImpl();
+}
+
+function saveStateImpl() {
     if (restoring) return true;
     const state = {
         version: CURRENT_VERSION,
@@ -1145,6 +1158,52 @@ function importState(event) {
 
 // ── Init: Zustand laden und Auto-Save Listener installieren ──────────────────
 // Aktionen, die per data-action-Attribut (statt Inline-onclick → CSP-konform) ausgelöst werden.
+// W6: expliziter Export statt globaler `let`-Bindings. Tests greifen
+// ausschließlich hierüber zu (window.ObfuscatorUI), nie auf globale Namen.
+window.ObfuscatorUI = {
+    // Aktionen (auch von ACTIONS/data-action verwendet):
+    analyzeCode, clearAll, obfuscateCode, copyObfuscated, deobfuscateCode, copyFinal,
+    analyzeSqlCode, clearSqlAll, obfuscateSqlCode, copySqlObfuscated, deobfuscateSqlCode, copySqlFinal,
+    exportState, isValidImportState, importState, switchTab,
+    // Persistenz:
+    saveState, loadState, clearTabState, resetCsharpFields, resetSqlFields,
+    captureSections, applySections,
+    // Chip-/Auswahltabellen-Helfer:
+    addChip, applyMappingFilter, updateSelectionCounter,
+    showStatus, showSqlStatus, notifyGlobal,
+    // Nur lesender Zugriff auf den internen Zustand (für Test-Assertions).
+    _state: {
+        get stringReplaceMapping() { return stringReplaceMapping; },
+        get csharpAutoMapping() { return csharpAutoMapping; },
+        get csharpAutoTypeMap() { return csharpAutoTypeMap; },
+        get sqlMapping() { return sqlMapping; },
+        get sqlStringReplaceMapping() { return sqlStringReplaceMapping; },
+        get csharpReplaceWords() { return csharpReplaceWords; },
+        get sqlReplaceWords() { return sqlReplaceWords; },
+        get replacementHistory() { return replacementHistory; },
+        get lastAnalyzedCsharpCode() { return lastAnalyzedCsharpCode; },
+        get lastAnalyzedSqlCode() { return lastAnalyzedSqlCode; },
+        get hasObfuscatedCsharp() { return hasObfuscatedCsharp; },
+        get hasObfuscatedSql() { return hasObfuscatedSql; }
+    },
+    // Nur für Tests: saveState() gezielt neutralisieren/zurücksetzen und den
+    // gesamten Modul-Zustand in einen sauberen Ausgangszustand versetzen.
+    _test: {
+        mockSaveState(fn) { saveStateOverride = fn; },
+        restoreSaveState() { saveStateOverride = null; },
+        resetCsharp() {
+            stringReplaceMapping = new Map(); reverseStringReplaceMapping = new Map(); replacementHistory = [];
+            csharpAutoMapping = new Map(); reverseCsharpAutoMapping = new Map(); csharpAutoTypeMap = new Map();
+            csharpReplaceWords.length = 0; lastAnalyzedCsharpCode = null; hasObfuscatedCsharp = false;
+        },
+        resetSql() {
+            sqlMapping = new Map(); reverseSqlMapping = new Map(); sqlStringReplaceMapping = new Map();
+            reverseSqlStringReplaceMapping = new Map(); sqlReplaceWords.length = 0;
+            lastAnalyzedSqlCode = null; hasObfuscatedSql = false;
+        }
+    }
+};
+
 const ACTIONS = {
     exportState, triggerImport: () => document.getElementById('importFileInput').click(),
     switchTab: el => switchTab(el.dataset.tab),
@@ -1261,3 +1320,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+})();

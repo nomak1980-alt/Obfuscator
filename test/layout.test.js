@@ -38,7 +38,7 @@ function it(name, cond, extra) {
         it('.code-row ist bei 390px einspaltig', codeRowCols === 1, `${codeRowCols} Spalten`);
 
         // U3: gleichzeitige Toasts überlappen nicht
-        await page.evaluate(() => { notifyGlobal('Export ok'); showStatus('Analyse ok'); });
+        await page.evaluate(() => { ObfuscatorUI.notifyGlobal('Export ok'); ObfuscatorUI.showStatus('Analyse ok'); });
         const overlap = await page.evaluate(() => {
             const g = document.getElementById('globalMessage').getBoundingClientRect();
             const s = document.getElementById('statusMessage').getBoundingClientRect();

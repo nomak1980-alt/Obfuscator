@@ -41,8 +41,9 @@ JSDOM.fromFile(path.join(__dirname, '..', 'obfuscator.html'), {
         it('ArrowLeft auf Tabliste aktiviert wieder C#', doc.getElementById('tab-csharp').classList.contains('active'));
 
         // 2) Analyse via data-action-Button
+        const UI = win.ObfuscatorUI;
         doc.getElementById('originalCode').value = 'class Foo { Bar Baz; }';
-        win.eval("addChip('Bar', csharpReplaceWords, 'stringReplaceChips')");
+        UI.addChip('Bar', UI._state.csharpReplaceWords, 'stringReplaceChips');
         const analyzeBtn = doc.querySelector('[data-action="analyzeCode"]');
         click(analyzeBtn);
         it('Analyse-Button erzeugt Auswahl-Checkbox', doc.querySelectorAll('.csharp-mapping-checkbox').length > 0);

@@ -50,8 +50,7 @@ module.exports = [
                 window: 'readonly',
                 getComputedStyle: 'readonly',
                 localStorage: 'readonly',
-                notifyGlobal: 'readonly',
-                showStatus: 'readonly'
+                ObfuscatorUI: 'readonly'
             }
         },
         rules: {
