@@ -155,18 +155,13 @@
         return hitLines;
     }
 
-    // ── C# ────────────────────────────────────────────────────────────────
-
-    const CS_PREFIX = 'STR_PLACEHOLDER_';
-
-    /**
-     * Analysiert C#-Code: findet alle Bezeichner, die eines der Suchwörter
-     * enthalten (case-insensitiv, "raum" trifft auch SvcRaum/Raumnummer),
-     * und vergibt kollisionssichere Platzhalter pro Bezeichner-Variante.
-     * @returns {Array<{original:string, placeholder:string}>} in Fundreihenfolge
-     */
-    function analyzeCSharp(code, words) {
-        const suffix = uniqueSuffix(code, [CS_PREFIX]);
+    // W5: analyzeCSharp und analyzeSqlStringReplace waren bis auf den Präfix
+    // und den Feldnamen (original/word) identisch – gemeinsame Kernlogik hier,
+    // damit ein künftiger Fix nicht (wie bei W2 geschehen) nur eine der beiden
+    // Kopien erreicht.
+    // @returns {Array<{[fieldName]:string, placeholder:string}>} in Fundreihenfolge
+    function findWordVariants(code, words, prefix, fieldName) {
+        const suffix = uniqueSuffix(code, [prefix]);
         const result = [];
         const seenVariants = new Set();
         const processedBaseWords = new Set();
@@ -184,11 +179,25 @@
                 if (variant.length === 0) { searchRegex.lastIndex++; continue; }
                 if (!seenVariants.has(variant)) {
                     seenVariants.add(variant);
-                    result.push({ original: variant, placeholder: `${CS_PREFIX}${suffix}${counter++}` });
+                    result.push({ [fieldName]: variant, placeholder: `${prefix}${suffix}${counter++}` });
                 }
             }
         });
         return result;
+    }
+
+    // ── C# ────────────────────────────────────────────────────────────────
+
+    const CS_PREFIX = 'STR_PLACEHOLDER_';
+
+    /**
+     * Analysiert C#-Code: findet alle Bezeichner, die eines der Suchwörter
+     * enthalten (case-insensitiv, "raum" trifft auch SvcRaum/Raumnummer),
+     * und vergibt kollisionssichere Platzhalter pro Bezeichner-Variante.
+     * @returns {Array<{original:string, placeholder:string}>} in Fundreihenfolge
+     */
+    function analyzeCSharp(code, words) {
+        return findWordVariants(code, words, CS_PREFIX, 'original');
     }
 
     // ── SQL ───────────────────────────────────────────────────────────────
@@ -244,26 +253,7 @@
      * @returns {{entries:Array<{word:string,placeholder:string}>, processedCode:string}}
      */
     function analyzeSqlStringReplace(words, code) {
-        const suffix = uniqueSuffix(code, [SQL_STR_PREFIX]);
-        const entries = [];
-        const seenVariants = new Set();
-        const processedBaseWords = new Set();
-        let counter = 1;
-        words.forEach(word => {
-            const wordLower = word.toLowerCase();
-            if (processedBaseWords.has(wordLower)) return;
-            processedBaseWords.add(wordLower);
-            const searchRegex = containingWordRegex(word, 'gi');
-            let match;
-            while ((match = searchRegex.exec(code)) !== null) {
-                const variant = match[0];
-                if (variant.length === 0) { searchRegex.lastIndex++; continue; }
-                if (!seenVariants.has(variant)) {
-                    seenVariants.add(variant);
-                    entries.push({ word: variant, placeholder: `${SQL_STR_PREFIX}${suffix}${counter++}` });
-                }
-            }
-        });
+        const entries = findWordVariants(code, words, SQL_STR_PREFIX, 'word');
         const processedCode = applyReplacements(
             code,
             entries.map(e => ({ from: e.word, to: e.placeholder }))
