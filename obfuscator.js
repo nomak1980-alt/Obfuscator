@@ -25,6 +25,11 @@ let sqlReplaceWords = [];
 // mit veralteten Mappings, wenn der Nutzer den Code danach ändert).
 let lastAnalyzedCsharpCode = null;
 let lastAnalyzedSqlCode = null;
+// R2: verhindert Zurückverwandeln, solange nicht tatsächlich (mit dieser
+// Auswahl) verschleiert wurde – reine Analyse befüllt die Auto-Mapping-Maps
+// bereits, was sonst ein "Zurückverwandeln" ohne vorherige Bestätigung erlaubt.
+let hasObfuscatedCsharp = false;
+let hasObfuscatedSql = false;
 
 let statusTimer = null;
 let sqlStatusTimer = null;
@@ -173,6 +178,7 @@ function saveState() {
             csharpAutoMapping: Array.from(csharpAutoMapping.entries()),
             csharpAutoTypeMap: Array.from(csharpAutoTypeMap.entries()),
             lastAnalyzedCode: lastAnalyzedCsharpCode,
+            hasObfuscated: hasObfuscatedCsharp,
             selection: captureCsharpSelection(),
             sections: captureSections([
                 'csharpMappingSelectionSection',
@@ -191,6 +197,7 @@ function saveState() {
             sqlMapping: Array.from(sqlMapping.entries()),
             sqlStringReplaceMapping: Array.from(sqlStringReplaceMapping.entries()),
             lastAnalyzedCode: lastAnalyzedSqlCode,
+            hasObfuscated: hasObfuscatedSql,
             selection: captureSqlSelection(),
             sections: captureSections([
                 'sqlUsedMappingSection',
@@ -312,6 +319,7 @@ function loadState() {
             reverseCsharpAutoMapping = buildReverse(csharpAutoMapping);
             csharpAutoTypeMap = new Map(cs.csharpAutoTypeMap || []);
             lastAnalyzedCsharpCode = typeof cs.lastAnalyzedCode === 'string' ? cs.lastAnalyzedCode : null;
+            hasObfuscatedCsharp = !!cs.hasObfuscated;
             replacementHistory = cs.replacementHistory || [];
             if (stringReplaceMapping.size > 0 && replacementHistory.length === 0) {
                 stringReplaceMapping.forEach((ph, orig) => replacementHistory.push({ placeholder: ph, original: orig }));
@@ -351,6 +359,7 @@ function loadState() {
             sqlStringReplaceMapping = new Map(sq.sqlStringReplaceMapping || []);
             reverseSqlStringReplaceMapping = buildReverse(sqlStringReplaceMapping);
             lastAnalyzedSqlCode = typeof sq.lastAnalyzedCode === 'string' ? sq.lastAnalyzedCode : null;
+            hasObfuscatedSql = !!sq.hasObfuscated;
 
             if (sq.selection && sq.selection.length > 0) restoreSqlSelection(sq.selection);
             if (sqlMapping.size > 0 || sqlStringReplaceMapping.size > 0) updateSqlUsedMappingDisplay();
@@ -509,6 +518,7 @@ function analyzeCode() {
     }
 
     lastAnalyzedCsharpCode = originalCode;
+    hasObfuscatedCsharp = false;
     renderCsharpSelectionTable(stringReplaceMapping, csharpAutoMapping, csharpAutoTypeMap);
     const csharpSelSec = document.getElementById('csharpMappingSelectionSection');
     csharpSelSec.style.display = 'block';
@@ -601,6 +611,8 @@ function obfuscateCode() {
         return;
     }
 
+    hasObfuscatedCsharp = true;
+
     // Abgewählte Begriffe merken, bevor die Auswahl-Sektion neu aufgebaut wird (K3).
     const deselectedOriginals = Array.from(document.querySelectorAll('.csharp-mapping-checkbox'))
         .filter(cb => !cb.checked)
@@ -663,7 +675,7 @@ function deobfuscateCode() {
         showStatus('Bitte füge zuerst die KI-Antwort ein!', 'error');
         return;
     }
-    if (replacementHistory.length === 0 && reverseCsharpAutoMapping.size === 0) {
+    if (!hasObfuscatedCsharp || (replacementHistory.length === 0 && reverseCsharpAutoMapping.size === 0)) {
         showStatus('Kein Mapping verfügbar! Bitte verschleiere zuerst deinen Code.', 'error');
         return;
     }
@@ -709,6 +721,7 @@ function resetCsharpFields() {
     reverseCsharpAutoMapping = new Map();
     csharpAutoTypeMap = new Map();
     lastAnalyzedCsharpCode = null;
+    hasObfuscatedCsharp = false;
 
     ['csharpMappingSelectionSection', 'obfuscatedSection', 'csharpUsedMappingSection',
         'aiResponseSection', 'finalSection']
@@ -764,6 +777,7 @@ function analyzeSqlCode() {
         document.getElementById('sqlMappingSelectionSection').style.display = 'none';
     }
     lastAnalyzedSqlCode = originalCode;
+    hasObfuscatedSql = false;
     document.getElementById('sqlObfuscatedSection').style.display = 'none';
     document.getElementById('sqlAiResponseSection').style.display = 'none';
     document.getElementById('sqlUsedMappingSection').style.display = 'none';
@@ -851,6 +865,8 @@ function obfuscateSqlCode() {
         return;
     }
 
+    hasObfuscatedSql = true;
+
     // Abgewählte Begriffe merken, bevor die Auswahl neu aufgebaut wird (K3).
     const deselectedOriginals = Array.from(document.querySelectorAll('.sql-mapping-checkbox'))
         .filter(cb => !cb.checked)
@@ -914,7 +930,7 @@ function deobfuscateSqlCode() {
         showSqlStatus('Bitte füge zuerst die KI-Antwort ein!', 'error');
         return;
     }
-    if (reverseSqlMapping.size === 0 && reverseSqlStringReplaceMapping.size === 0) {
+    if (!hasObfuscatedSql || (reverseSqlMapping.size === 0 && reverseSqlStringReplaceMapping.size === 0)) {
         showSqlStatus('Kein Mapping verfügbar! Bitte verschleiere zuerst deinen SQL Code.', 'error');
         return;
     }
@@ -954,6 +970,7 @@ function resetSqlFields() {
     sqlStringReplaceMapping = new Map();
     reverseSqlStringReplaceMapping = new Map();
     lastAnalyzedSqlCode = null;
+    hasObfuscatedSql = false;
 
     ['sqlObfuscatedSection', 'sqlUsedMappingSection', 'sqlMappingSelectionSection',
         'sqlAiResponseSection', 'sqlFinalSection']

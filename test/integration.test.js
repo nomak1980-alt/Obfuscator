@@ -62,11 +62,12 @@ const ACCESSOR = `
   resetCs: () => {
     stringReplaceMapping = new Map(); reverseStringReplaceMapping = new Map(); replacementHistory = [];
     csharpAutoMapping = new Map(); reverseCsharpAutoMapping = new Map(); csharpAutoTypeMap = new Map();
-    csharpReplaceWords.length = 0; lastAnalyzedCsharpCode = null;
+    csharpReplaceWords.length = 0; lastAnalyzedCsharpCode = null; hasObfuscatedCsharp = false;
   },
   resetSql: () => {
     sqlMapping = new Map(); reverseSqlMapping = new Map(); sqlStringReplaceMapping = new Map();
     reverseSqlStringReplaceMapping = new Map(); sqlReplaceWords.length = 0; lastAnalyzedSqlCode = null;
+    hasObfuscatedSql = false;
   }
 };
 ;window.__csharpWords = csharpReplaceWords;
@@ -573,6 +574,29 @@ console.log('\n# W4 – kurze Chips überleben Laden/Importieren');
         assert(win.__csharpWords.includes('id'), win.__csharpWords.join(',')));
     it('normale Wörter bleiben ebenfalls erhalten', () =>
         assert(win.__csharpWords.includes('PLZ') && win.__csharpWords.includes('Kunde'), win.__csharpWords.join(',')));
+})();
+
+console.log('\n# R2 – Zurückverwandeln ohne vorheriges Verschleiern wird blockiert');
+(() => {
+    resetCsharp();
+    setVal('originalCode', 'public class CustomerService { public void GetOrder(int orderId) { } }');
+    ev('analyzeCode()'); // Auto-Analyse befuellt csharpAutoMapping bereits, OHNE zu verschleiern
+    setVal('aiResponse', 'CS_CLASS_1 result');
+    ev('deobfuscateCode()');
+    it('finalCode bleibt leer (kein unbestaetigtes Mapping angewendet)', () => eq($('finalCode').value, ''));
+    it('Fehlermeldung statt stillem Erfolg', () =>
+        assert($('statusMessage').className.includes('error'), $('statusMessage').className));
+})();
+
+(() => {
+    resetSql();
+    setVal('sqlOriginalCode', SQL_CODE);
+    ev('analyzeSqlCode()');
+    setVal('sqlAiResponse', 'SQL_TABLE_1 result');
+    ev('deobfuscateSqlCode()');
+    it('SQL: sqlFinalCode bleibt leer', () => eq($('sqlFinalCode').value, ''));
+    it('SQL: Fehlermeldung statt stillem Erfolg', () =>
+        assert($('sqlStatusMessage').className.includes('error'), $('sqlStatusMessage').className));
 })();
 
 console.log(`\n──────────────────────────────────────────`);
