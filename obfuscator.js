@@ -325,6 +325,10 @@ function loadState() {
             if (cs.selection && cs.selection.length > 0) restoreCsharpSelection(cs.selection);
             if (stringReplaceMapping.size > 0 || csharpAutoMapping.size > 0) updateCsharpUsedMappingDisplay();
             applySections(cs.sections);
+        } else {
+            // W1: fehlender Zweig in der importierten/geladenen Datei muss den
+            // Arbeitsstand aktiv leeren – sonst behält der Nutzer unbemerkt Altdaten.
+            resetCsharpFields();
         }
 
         if (state.sql) {
@@ -356,6 +360,8 @@ function loadState() {
             if (sq.selection && sq.selection.length > 0) restoreSqlSelection(sq.selection);
             if (sqlMapping.size > 0 || sqlStringReplaceMapping.size > 0) updateSqlUsedMappingDisplay();
             applySections(sq.sections);
+        } else {
+            resetSqlFields();
         }
 
         if (state.currentTab) switchTab(state.currentTab);
@@ -692,8 +698,11 @@ function deobfuscateCode() {
 async function copyObfuscated() { await copyToClipboard('obfuscatedCode', showStatus, 'Verschleierter Code'); }
 async function copyFinal() { await copyToClipboard('finalCode', showStatus, 'Finaler Code'); }
 
-function clearAll() {
-    if (!confirm('C#-Daten löschen? Das Mapping geht verloren!')) return;
+// Setzt den gesamten C#-Tab auf den Leerzustand zurück (ohne Bestätigung/
+// Statusmeldung/Persistenz) – gemeinsam genutzt von clearAll() und loadState()
+// (W1: fehlende Zweige beim Import müssen aktiv geleert werden, nicht nur
+// übersprungen werden).
+function resetCsharpFields() {
     ['originalCode', 'obfuscatedCode', 'aiResponse', 'finalCode']
         .forEach(id => { document.getElementById(id).value = ''; });
     clearChips(csharpReplaceWords, 'stringReplaceChips');
@@ -713,7 +722,11 @@ function clearAll() {
         .forEach(id => { document.getElementById(id).style.display = 'none'; });
     const csContainer = document.getElementById('csharpMappingSelectionContainer');
     if (csContainer) csContainer.innerHTML = '';
+}
 
+function clearAll() {
+    if (!confirm('C#-Daten löschen? Das Mapping geht verloren!')) return;
+    resetCsharpFields();
     clearTabState('csharp');
     showStatus('C#-Daten gelöscht!');
 }
@@ -935,8 +948,8 @@ function deobfuscateSqlCode() {
 async function copySqlObfuscated() { await copyToClipboard('sqlObfuscatedCode', showSqlStatus, 'Verschleierter SQL Code'); }
 async function copySqlFinal() { await copyToClipboard('sqlFinalCode', showSqlStatus, 'Finaler SQL Code'); }
 
-function clearSqlAll() {
-    if (!confirm('SQL-Daten löschen? Das Mapping geht verloren!')) return;
+// Siehe resetCsharpFields() – SQL-Pendant.
+function resetSqlFields() {
     ['sqlOriginalCode', 'sqlObfuscatedCode', 'sqlAiResponse', 'sqlFinalCode']
         .forEach(id => { document.getElementById(id).value = ''; });
     clearChips(sqlReplaceWords, 'sqlStringReplaceChips');
@@ -954,7 +967,11 @@ function clearSqlAll() {
         .forEach(id => { document.getElementById(id).style.display = 'none'; });
     const sqlContainer = document.getElementById('sqlMappingSelectionContainer');
     if (sqlContainer) sqlContainer.innerHTML = '';
+}
 
+function clearSqlAll() {
+    if (!confirm('SQL-Daten löschen? Das Mapping geht verloren!')) return;
+    resetSqlFields();
     clearTabState('sql');
     showSqlStatus('SQL-Daten gelöscht!');
 }

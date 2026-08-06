@@ -543,6 +543,29 @@ console.log('\n# K2 – Warnung bei Geheimnismustern im Ergebnis');
         assert($('statusMessage').className.includes('error'), $('statusMessage').className));
 })();
 
+console.log('\n# W1 – fehlender Zweig beim Laden/Importieren wird aktiv geleert');
+(() => {
+    resetCsharp();
+    resetSql();
+    // Voller Stand mit SQL-Daten simulieren (saveState ist gemockt, daher manuell ablegen).
+    const fullState = JSON.stringify({
+        version: 1,
+        csharp: { originalCode: 'class A {}' },
+        sql: { sqlOriginalCode: 'SELECT GeheimeSpalte FROM GeheimeTabelle' }
+    });
+    win.localStorage.setItem('obfuscatorAppState_v1', fullState);
+    ev('loadState()');
+    it('Vorbereitung: SQL-Code ist geladen', () => eq($('sqlOriginalCode').value, 'SELECT GeheimeSpalte FROM GeheimeTabelle'));
+
+    // Backup ohne sql-Zweig importieren (wie bei importState()).
+    const partialState = JSON.stringify({ version: 1, csharp: { originalCode: 'class B {}' } });
+    win.localStorage.setItem('obfuscatorAppState_v1', partialState);
+    ev('loadState()');
+    it('fehlender SQL-Zweig leert das SQL-Textfeld statt es stehen zu lassen', () =>
+        eq($('sqlOriginalCode').value, '', 'sqlOriginalCode sollte nach fehlendem Zweig leer sein'));
+    it('C#-Zweig wird trotzdem korrekt geladen', () => eq($('originalCode').value, 'class B {}'));
+})();
+
 console.log(`\n──────────────────────────────────────────`);
 console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);
 process.exit(fail ? 1 : 0);
