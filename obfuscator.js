@@ -985,8 +985,14 @@ function exportState() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `obfuscator-backup-${date}.json`;
+    // R1: Anker muss im Dokument hängen, damit der Klick in jedem Browser
+    // zuverlässig greift (Firefox ignoriert Klicks auf nicht eingehängte
+    // <a>-Elemente historisch); revokeObjectURL verzögert, damit der
+    // Download-Start nicht durch das sofortige Freigeben abgebrochen wird.
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     notifyGlobal('Backup erfolgreich exportiert.');
 }
 
