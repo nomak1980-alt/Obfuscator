@@ -1072,6 +1072,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const importInput = document.getElementById('importFileInput');
     if (importInput) importInput.addEventListener('change', importState);
 
+    // K4: Tabliste per Pfeiltasten/Home/End erreichbar machen (WCAG 2.1.1).
+    const tablist = document.querySelector('[role="tablist"]');
+    if (tablist) {
+        tablist.addEventListener('keydown', (ev) => {
+            const tabs = Array.from(document.querySelectorAll('.tab'));
+            const currentIndex = tabs.findIndex(t => t.classList.contains('active'));
+            let newIndex = null;
+            if (ev.key === 'ArrowRight') newIndex = (currentIndex + 1) % tabs.length;
+            else if (ev.key === 'ArrowLeft') newIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+            else if (ev.key === 'Home') newIndex = 0;
+            else if (ev.key === 'End') newIndex = tabs.length - 1;
+            if (newIndex === null) return;
+            ev.preventDefault();
+            const target = tabs[newIndex];
+            switchTab(target.dataset.tab);
+            target.focus();
+        });
+    }
+
     const watchedInputs = [
         'originalCode', 'obfuscatedCode', 'aiResponse', 'finalCode',
         'sqlOriginalCode', 'sqlObfuscatedCode', 'sqlAiResponse', 'sqlFinalCode'

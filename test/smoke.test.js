@@ -34,6 +34,12 @@ JSDOM.fromFile(path.join(__dirname, '..', 'obfuscator.html'), {
 
         click(doc.getElementById('tab-csharp'));
 
+        // 1b) K4: Tabliste per Pfeiltaste erreichbar
+        doc.getElementById('tab-csharp').dispatchEvent(new win.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+        it('ArrowRight auf Tabliste aktiviert MS SQL', doc.getElementById('tab-mssql').classList.contains('active'));
+        doc.getElementById('tab-mssql').dispatchEvent(new win.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+        it('ArrowLeft auf Tabliste aktiviert wieder C#', doc.getElementById('tab-csharp').classList.contains('active'));
+
         // 2) Analyse via data-action-Button
         doc.getElementById('originalCode').value = 'class Foo { Bar Baz; }';
         win.eval("addChip('Bar', csharpReplaceWords, 'stringReplaceChips')");
