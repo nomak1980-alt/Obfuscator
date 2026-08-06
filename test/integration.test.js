@@ -26,8 +26,6 @@ const HIDDEN_DOM = `
   <div id="csharpMappingSelectionContainer"></div>
   <div id="csharpUsedMappingSection"></div>
   <div id="csharpUsedMappingDisplay"></div>
-  <div id="stringReplaceMappingSection"></div>
-  <div id="stringReplaceMappingDisplay"></div>
   <div id="obfuscatedSection"></div>
   <div id="aiResponseSection"></div>
   <div id="finalSection"></div>
@@ -42,10 +40,6 @@ const HIDDEN_DOM = `
   <div id="sqlMappingSelectionContainer"></div>
   <div id="sqlUsedMappingSection"></div>
   <div id="sqlUsedMappingDisplay"></div>
-  <div id="sqlStringReplaceMappingSection"></div>
-  <div id="sqlStringReplaceMappingDisplay"></div>
-  <div id="sqlMappingSection"></div>
-  <div id="sqlMappingDisplay"></div>
   <div id="sqlObfuscatedSection"></div>
   <div id="sqlAiResponseSection"></div>
   <div id="sqlFinalSection"></div>
@@ -99,7 +93,7 @@ function resetCsharp() {
     ['originalCode', 'obfuscatedCode', 'aiResponse', 'finalCode']
         .forEach(id => setVal(id, ''));
     win.__t.resetCs();
-    ['csharpMappingSelectionSection', 'obfuscatedSection', 'stringReplaceMappingSection', 'aiResponseSection', 'finalSection']
+    ['csharpMappingSelectionSection', 'obfuscatedSection', 'aiResponseSection', 'finalSection']
         .forEach(id => { $(id).style.display = 'none'; });
     $('csharpMappingSelectionContainer').innerHTML = '';
     const chips = $('stringReplaceChips');
@@ -113,7 +107,7 @@ function resetSql() {
     ['sqlOriginalCode', 'sqlObfuscatedCode', 'sqlAiResponse', 'sqlFinalCode']
         .forEach(id => setVal(id, ''));
     win.__t.resetSql();
-    ['sqlStringReplaceMappingSection', 'sqlMappingSelectionSection', 'sqlMappingSection', 'sqlObfuscatedSection', 'sqlAiResponseSection', 'sqlFinalSection']
+    ['sqlMappingSelectionSection', 'sqlObfuscatedSection', 'sqlAiResponseSection', 'sqlFinalSection']
         .forEach(id => { $(id).style.display = 'none'; });
     $('sqlMappingSelectionContainer').innerHTML = '';
     const chips = $('sqlStringReplaceChips');
