@@ -28,7 +28,6 @@
         </div>
 
         <div class="tabs" role="tablist" aria-label="Code-Typ">
-            <!-- FIX #6: data-tab Attribute statt nth-child Selektion -->
             <button class="tab active" id="tab-csharp" role="tab" aria-selected="true" aria-controls="csharp-tab"
                 data-tab="csharp" data-action="switchTab">C# Code</button>
             <button class="tab" id="tab-mssql" role="tab" aria-selected="false" aria-controls="mssql-tab" tabindex="-1"
@@ -80,13 +79,11 @@
                 </div>
             </div>
 
-            <!-- FIX #10: Analysieren-Button statt direktes Verschleiern -->
             <div class="button-group">
                 <button class="btn-primary" data-action="analyzeCode">🔍 Code Analysieren</button>
-                <button class="btn-danger" data-action="clearAll">🗑️ Alles Löschen</button>
+                <button class="btn-danger" data-action="clearAll">🗑️ C#-Daten löschen</button>
             </div>
 
-            <!-- FIX #10: Neue Auswahl-Sektion für C# (wie SQL) -->
             <div class="section" id="csharpMappingSelectionSection" style="display: none;">
                 <h3 class="collapsible" title="Sektion ein-/ausklappen">
                     <span class="h3-title">
@@ -203,7 +200,7 @@
 
             <div class="button-group">
                 <button class="btn-primary" data-action="analyzeSqlCode">🔍 SQL Analysieren</button>
-                <button class="btn-danger" data-action="clearSqlAll">🗑️ Alles Löschen</button>
+                <button class="btn-danger" data-action="clearSqlAll">🗑️ SQL-Daten löschen</button>
             </div>
 
             <div class="section" id="sqlMappingSelectionSection" style="display: none;">

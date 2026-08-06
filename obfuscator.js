@@ -59,12 +59,8 @@ function buildReverse(map) {
 function mapToForward(map) {
     return Array.from(map, ([from, to]) => ({ from, to }));
 }
-function mapToReverse(map) {
+function toPlaceholderEntries(map) {
     return Array.from(map, ([placeholder, original]) => ({ placeholder, original }));
-}
-
-function getReplaceWords(prefix) {
-    return prefix === 'stringReplace' ? [...csharpReplaceWords] : [...sqlReplaceWords];
 }
 
 function renderChip(word, arr, containerId) {
@@ -219,10 +215,6 @@ function saveState() {
     }
 }
 
-function clearSavedState() {
-    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
-}
-
 function clearTabState(tabKey) {
     let raw;
     try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { return; }
@@ -375,8 +367,6 @@ function loadState() {
 
 // ── Hilfsfunktionen (DOM/Anzeige) ──────────────────────────────────────────
 
-function escapeHtml(str) { return Core.escapeHtml(str); }
-
 function switchTab(tab) {
     document.querySelectorAll('.tab').forEach(t => {
         const active = t.dataset.tab === tab;
@@ -452,16 +442,16 @@ function renderMappingList(divId, map, emptyText) {
     if (!div) return;
     div.innerHTML = '';
     if (map.size === 0) {
-        div.innerHTML = `<div class="mapping-empty">${escapeHtml(emptyText)}</div>`;
+        div.innerHTML = `<div class="mapping-empty">${Core.escapeHtml(emptyText)}</div>`;
         return;
     }
     map.forEach((placeholder, original) => {
         const item = document.createElement('div');
         item.className = 'mapping-item';
         item.innerHTML = `
-            <span class="original">${escapeHtml(original)}</span>
+            <span class="original">${Core.escapeHtml(original)}</span>
             <span>→</span>
-            <span class="obfuscated">${escapeHtml(placeholder)}</span>
+            <span class="obfuscated">${Core.escapeHtml(placeholder)}</span>
         `;
         div.appendChild(item);
     });
@@ -502,7 +492,7 @@ function analyzeCode() {
     }
 
     // Schritt 1: String-Replace-Analyse (bestehend)
-    const strAnalyzed = Core.analyzeCSharp(originalCode, getReplaceWords('stringReplace'));
+    const strAnalyzed = Core.analyzeCSharp(originalCode, [...csharpReplaceWords]);
     stringReplaceMapping = new Map(strAnalyzed.map(e => [e.original, e.placeholder]));
     reverseStringReplaceMapping = buildReverse(stringReplaceMapping);
 
@@ -565,10 +555,10 @@ function renderCsharpSelectionTable(strMap, autoMap, typeMap) {
     strMap.forEach((placeholder, original) => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td><input type="checkbox" class="csharp-mapping-checkbox" data-original="${escapeHtml(original)}" data-placeholder="${escapeHtml(placeholder)}" data-type="String" aria-label="${escapeHtml(original)} verschleiern" checked></td>
+            <td><input type="checkbox" class="csharp-mapping-checkbox" data-original="${Core.escapeHtml(original)}" data-placeholder="${Core.escapeHtml(placeholder)}" data-type="String" aria-label="${Core.escapeHtml(original)} verschleiern" checked></td>
             <td>String</td>
-            <td class="original">${escapeHtml(original)}</td>
-            <td class="obfuscated">${escapeHtml(placeholder)}</td>
+            <td class="original">${Core.escapeHtml(original)}</td>
+            <td class="obfuscated">${Core.escapeHtml(placeholder)}</td>
         `;
         tbody.appendChild(row);
     });
@@ -577,10 +567,10 @@ function renderCsharpSelectionTable(strMap, autoMap, typeMap) {
         const typLabel = typeMap ? (typeMap.get(original) || '') : '';
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td><input type="checkbox" class="csharp-mapping-checkbox" data-original="${escapeHtml(original)}" data-placeholder="${escapeHtml(placeholder)}" data-type="${escapeHtml(typLabel)}" aria-label="${escapeHtml(original)} verschleiern" checked></td>
-            <td>${escapeHtml(typLabel)}</td>
-            <td class="original">${escapeHtml(original)}</td>
-            <td class="obfuscated">${escapeHtml(placeholder)}</td>
+            <td><input type="checkbox" class="csharp-mapping-checkbox" data-original="${Core.escapeHtml(original)}" data-placeholder="${Core.escapeHtml(placeholder)}" data-type="${Core.escapeHtml(typLabel)}" aria-label="${Core.escapeHtml(original)} verschleiern" checked></td>
+            <td>${Core.escapeHtml(typLabel)}</td>
+            <td class="original">${Core.escapeHtml(original)}</td>
+            <td class="obfuscated">${Core.escapeHtml(placeholder)}</td>
         `;
         tbody.appendChild(row);
     });
@@ -682,7 +672,7 @@ function deobfuscateCode() {
     const countMatch = () => restoredCount++;
 
     // Schritt 1: Auto-Mapping zuerst rückgängig
-    let finalCode = Core.reverseReplacements(aiResponse, mapToReverse(reverseCsharpAutoMapping), countMatch);
+    let finalCode = Core.reverseReplacements(aiResponse, toPlaceholderEntries(reverseCsharpAutoMapping), countMatch);
 
     // Schritt 2: String-Replace rückgängig
     finalCode = Core.reverseReplacements(finalCode, replacementHistory, countMatch);
@@ -749,7 +739,7 @@ function analyzeSqlCode() {
         if (!confirm('Neu analysieren? Das bisherige SQL-Mapping geht verloren und verschleierter Code kann nicht mehr zurückverwandelt werden.')) return;
     }
 
-    const sr = Core.analyzeSqlStringReplace(getReplaceWords('sqlStringReplace'), originalCode);
+    const sr = Core.analyzeSqlStringReplace([...sqlReplaceWords], originalCode);
     sqlStringReplaceMapping = new Map(sr.entries.map(e => [e.word, e.placeholder]));
     reverseSqlStringReplaceMapping = buildReverse(sqlStringReplaceMapping);
 
@@ -808,10 +798,10 @@ function displaySqlMappingSelection(potentialMappings) {
     sqlStringReplaceMapping.forEach((placeholder, word) => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td><input type="checkbox" class="sql-mapping-checkbox" data-element="${escapeHtml(word)}" data-type="String" data-obfuscated="${escapeHtml(placeholder)}" aria-label="${escapeHtml(word)} verschleiern" checked></td>
+            <td><input type="checkbox" class="sql-mapping-checkbox" data-element="${Core.escapeHtml(word)}" data-type="String" data-obfuscated="${Core.escapeHtml(placeholder)}" aria-label="${Core.escapeHtml(word)} verschleiern" checked></td>
             <td>String</td>
-            <td class="original">${escapeHtml(word)}</td>
-            <td class="obfuscated">${escapeHtml(placeholder)}</td>
+            <td class="original">${Core.escapeHtml(word)}</td>
+            <td class="obfuscated">${Core.escapeHtml(placeholder)}</td>
         `;
         tbody.appendChild(row);
     });
@@ -822,10 +812,10 @@ function displaySqlMappingSelection(potentialMappings) {
         const mapping = potentialMappings.get(element);
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td><input type="checkbox" class="sql-mapping-checkbox" data-element="${escapeHtml(element)}" data-type="${escapeHtml(mapping.type)}" data-obfuscated="${escapeHtml(mapping.obfuscated)}" aria-label="${escapeHtml(element)} verschleiern" checked></td>
-            <td>${escapeHtml(mapping.type)}</td>
-            <td class="original">${escapeHtml(element)}</td>
-            <td class="obfuscated">${escapeHtml(mapping.obfuscated)}</td>
+            <td><input type="checkbox" class="sql-mapping-checkbox" data-element="${Core.escapeHtml(element)}" data-type="${Core.escapeHtml(mapping.type)}" data-obfuscated="${Core.escapeHtml(mapping.obfuscated)}" aria-label="${Core.escapeHtml(element)} verschleiern" checked></td>
+            <td>${Core.escapeHtml(mapping.type)}</td>
+            <td class="original">${Core.escapeHtml(element)}</td>
+            <td class="obfuscated">${Core.escapeHtml(mapping.obfuscated)}</td>
         `;
         tbody.appendChild(row);
     });
@@ -933,8 +923,8 @@ function deobfuscateSqlCode() {
     const countMatch = () => restoredCount++;
 
     // Schritt 1: SQL-Elemente zurück, Schritt 2: String-Replace zurück.
-    let finalCode = Core.reverseReplacements(aiResponse, mapToReverse(reverseSqlMapping), countMatch);
-    finalCode = Core.reverseReplacements(finalCode, mapToReverse(reverseSqlStringReplaceMapping), countMatch);
+    let finalCode = Core.reverseReplacements(aiResponse, toPlaceholderEntries(reverseSqlMapping), countMatch);
+    finalCode = Core.reverseReplacements(finalCode, toPlaceholderEntries(reverseSqlStringReplaceMapping), countMatch);
 
     document.getElementById('sqlFinalCode').value = finalCode;
     document.getElementById('sqlFinalSection').style.display = 'block';

@@ -78,7 +78,7 @@ const ACCESSOR = `
 ;window.__csharpWords = csharpReplaceWords;
 ;window.__sqlWords = sqlReplaceWords;`;
 ev(glueSrc + '\n' + ACCESSOR);
-ev('saveState = () => {}; clearSavedState = () => {};');
+ev('saveState = () => {};');
 win.localStorage.clear();
 
 const doc = win.document;
