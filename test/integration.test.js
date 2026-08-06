@@ -599,6 +599,22 @@ console.log('\n# R2 – Zurückverwandeln ohne vorheriges Verschleiern wird bloc
         assert($('sqlStatusMessage').className.includes('error'), $('sqlStatusMessage').className));
 })();
 
+console.log('\n# R3 – zurückgebliebene Platzhalter nach dem Zurückverwandeln');
+(() => {
+    resetCsharp();
+    setVal('originalCode', 'public class CustomerService { public void GetOrder(int orderId) { } }');
+    ev('analyzeCode()');
+    ev('obfuscateCode()');
+    // KI-Antwort simuliert: ein Platzhalter wird zusätzlich unverändert im Text erwähnt.
+    const obf = $('obfuscatedCode').value;
+    setVal('aiResponse', obf + '\n// Hinweis: CS_CLASS_99 kommt hier nicht im Mapping vor');
+    ev('deobfuscateCode()');
+    it('Warnung meldet übrig gebliebenen Platzhalter', () =>
+        assert($('statusMessage').textContent.includes('CS_CLASS_99'), $('statusMessage').textContent));
+    it('Warnstatus ist error', () =>
+        assert($('statusMessage').className.includes('error'), $('statusMessage').className));
+})();
+
 console.log(`\n──────────────────────────────────────────`);
 console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);
 process.exit(fail ? 1 : 0);

@@ -610,6 +610,26 @@
         return result;
     }
 
+    // R3: nach der Rückverwandlung soll erkannt werden, wenn die KI-Antwort
+    // Platzhalter verändert zurückgegeben hat (Markdown, Umbrüche, o.ä.) und
+    // dadurch Reste im finalen Code stehen bleiben, statt das unbemerkt zu lassen.
+    const ALL_PLACEHOLDER_PREFIXES = [
+        CS_PREFIX, SQL_STR_PREFIX,
+        ...Object.values(CS_PREFIXES),
+        ...Object.values(SQL_PREFIXES)
+    ];
+
+    function findLeftoverPlaceholders(code) {
+        const text = String(code);
+        const found = new Set();
+        ALL_PLACEHOLDER_PREFIXES.forEach(prefix => {
+            const rx = new RegExp(escapeRegex(prefix) + '[A-Za-z0-9_]*\\d+', 'g');
+            let m;
+            while ((m = rx.exec(text)) !== null) found.add(m[0]);
+        });
+        return Array.from(found);
+    }
+
     return {
         escapeRegex,
         escapeHtml,
@@ -619,6 +639,7 @@
         reverseReplacements,
         analyzeCSharp,
         findSecretHints,
+        findLeftoverPlaceholders,
         isSqlReservedWord,
         analyzeSqlStringReplace,
         analyzeSqlElements,

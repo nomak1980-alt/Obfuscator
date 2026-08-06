@@ -400,6 +400,19 @@ it('liefert leeres Array ohne Geheimnismuster', () => {
     eq(C.findSecretHints(code).length, 0);
 });
 
+console.log('\n# R3 – Geleakte/veraenderte Platzhalter erkennen (findLeftoverPlaceholders)');
+it('erkennt zurueckgebliebenen CS_CLASS_-Platzhalter', () => {
+    const hits = C.findLeftoverPlaceholders('Hier steht noch CS_CLASS_1 im Text.');
+    assert(hits.includes('CS_CLASS_1'), JSON.stringify(hits));
+});
+it('erkennt SQL_TABLE_ und STR_PLACEHOLDER_ gemeinsam', () => {
+    const hits = C.findLeftoverPlaceholders('SELECT * FROM SQL_TABLE_2 WHERE x = STR_PLACEHOLDER_5');
+    assert(hits.includes('SQL_TABLE_2') && hits.includes('STR_PLACEHOLDER_5'), JSON.stringify(hits));
+});
+it('liefert leeres Array bei vollstaendig zurueckverwandeltem Code', () => {
+    eq(C.findLeftoverPlaceholders('public class CustomerService { }').length, 0);
+});
+
 console.log(`\n──────────────────────────────────────────`);
 console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);
 process.exit(fail ? 1 : 0);

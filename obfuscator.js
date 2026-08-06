@@ -445,6 +445,16 @@ function secretHintWarning(obfuscatedCode) {
     return ` ⚠ Mögliche Zugangsdaten/Geheimnisse in Zeile ${lines.join(', ')} entdeckt – Strings, Kommentare und Zahlen werden von diesem Werkzeug NICHT verschleiert.`;
 }
 
+// R3: Wenn die KI-Antwort Platzhalter verändert zurückgibt (Markdown, Umbrüche,
+// Groß-/Kleinschreibung), bleiben sie nach der Rückverwandlung im Ergebnis
+// stehen. Das soll nicht unbemerkt in die Codebasis kopiert werden.
+function leftoverPlaceholderWarning(finalCode) {
+    const leftovers = Core.findLeftoverPlaceholders(finalCode);
+    if (leftovers.length === 0) return '';
+    const preview = leftovers.slice(0, 5).join(', ') + (leftovers.length > 5 ? ` (+${leftovers.length - 5} weitere)` : '');
+    return ` ⚠ ${leftovers.length} Platzhalter im Ergebnis übrig geblieben: ${preview}.`;
+}
+
 // Gemeinsames Rendern einer "Original → Platzhalter"-Liste.
 function renderMappingList(divId, map, emptyText) {
     const div = document.getElementById(divId);
@@ -691,11 +701,12 @@ function deobfuscateCode() {
 
     document.getElementById('finalCode').value = finalCode;
     document.getElementById('finalSection').style.display = 'block';
+    const leftoverWarning = leftoverPlaceholderWarning(finalCode);
     showStatus(
         restoredCount === 0
             ? 'Zurückverwandeln ohne Treffer: Kein bekannter Platzhalter in der KI-Antwort gefunden.'
-            : `Code erfolgreich zurückverwandelt! ${restoredCount} Ersetzung(en) vorgenommen.`,
-        restoredCount === 0 ? 'error' : 'success'
+            : `Code erfolgreich zurückverwandelt! ${restoredCount} Ersetzung(en) vorgenommen.${leftoverWarning}`,
+        (restoredCount === 0 || leftoverWarning) ? 'error' : 'success'
     );
     saveState();
 }
@@ -944,11 +955,12 @@ function deobfuscateSqlCode() {
 
     document.getElementById('sqlFinalCode').value = finalCode;
     document.getElementById('sqlFinalSection').style.display = 'block';
+    const leftoverWarning = leftoverPlaceholderWarning(finalCode);
     showSqlStatus(
         restoredCount === 0
             ? 'Zurückverwandeln ohne Treffer: Kein bekannter Platzhalter in der KI-Antwort gefunden.'
-            : `SQL Code erfolgreich zurückverwandelt! ${restoredCount} Ersetzung(en) vorgenommen.`,
-        restoredCount === 0 ? 'error' : 'success'
+            : `SQL Code erfolgreich zurückverwandelt! ${restoredCount} Ersetzung(en) vorgenommen.${leftoverWarning}`,
+        (restoredCount === 0 || leftoverWarning) ? 'error' : 'success'
     );
     saveState();
 }
