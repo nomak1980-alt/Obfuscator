@@ -23,6 +23,9 @@ const HIDDEN_DOM = `
   <div id="stringReplaceChips"></div>
   <div id="statusMessage"></div>
   <div id="csharpMappingSelectionSection"></div>
+  <input id="csharpFilterInput" type="text">
+  <select id="csharpFilterType"><option value=""></option></select>
+  <span id="csharpSelectionCounter"></span>
   <div id="csharpMappingSelectionContainer"></div>
   <div id="csharpUsedMappingSection"></div>
   <div id="csharpUsedMappingDisplay"></div>
@@ -37,6 +40,9 @@ const HIDDEN_DOM = `
   <div id="sqlStringReplaceChips"></div>
   <div id="sqlStatusMessage"></div>
   <div id="sqlMappingSelectionSection"></div>
+  <input id="sqlFilterInput" type="text">
+  <select id="sqlFilterType"><option value=""></option></select>
+  <span id="sqlSelectionCounter"></span>
   <div id="sqlMappingSelectionContainer"></div>
   <div id="sqlUsedMappingSection"></div>
   <div id="sqlUsedMappingDisplay"></div>
@@ -648,6 +654,29 @@ console.log('\n# U7 – collapsed-Zustand übersteht ein Neuladen');
     ev('applySections(window.__savedSections)');
     it('collapsed-Klasse nach applySections wiederhergestellt', () =>
         assert($('csharpMappingSelectionSection').classList.contains('collapsed')));
+})();
+
+console.log('\n# U8 – Filter/Zähler für die Auswahltabelle');
+(() => {
+    resetCsharp();
+    setVal('originalCode', 'public class CustomerService { public void GetOrder(int orderId) { } }');
+    ev('analyzeCode()');
+    it('Zähler zeigt "3 von 3 ausgewählt" nach der Analyse', () =>
+        eq($('csharpSelectionCounter').textContent, '3 von 3 ausgewählt'));
+
+    ev("applyMappingFilter('csharpFilterInput', 'csharpFilterType', '.csharp-mapping-checkbox')");
+    setVal('csharpFilterInput', 'Order');
+    ev("applyMappingFilter('csharpFilterInput', 'csharpFilterType', '.csharp-mapping-checkbox')");
+    const visible = Array.from(doc.querySelectorAll('#csharpMappingSelectionContainer tbody tr'))
+        .filter(r => !r.classList.contains('filtered-out'))
+        .map(r => r.querySelector('.original').textContent);
+    it('Filter "Order" blendet CustomerService aus, GetOrder/orderId bleiben', () =>
+        assert(!visible.includes('CustomerService') && visible.includes('GetOrder') && visible.includes('orderId'), visible.join(',')));
+
+    doc.querySelectorAll('.csharp-mapping-checkbox')[0].checked = false;
+    ev("updateSelectionCounter('csharpSelectionCounter', '.csharp-mapping-checkbox')");
+    it('Zähler aktualisiert sich nach Abwahl einer Checkbox', () =>
+        eq($('csharpSelectionCounter').textContent, '2 von 3 ausgewählt'));
 })();
 
 console.log(`\n──────────────────────────────────────────`);

@@ -94,6 +94,13 @@
                     </span>
                     <svg class="chevron" viewBox="0 0 24 24" fill="currentColor"><path d="M7,10L12,15L17,10H7Z"/></svg>
                 </h3>
+                <div class="mapping-filter-row">
+                    <input type="text" id="csharpFilterInput" class="chip-input-field" placeholder="Filter: Original enthält…" aria-label="Auswahltabelle nach Original filtern">
+                    <select id="csharpFilterType" aria-label="Auswahltabelle nach Typ filtern">
+                        <option value="">Alle Typen</option>
+                    </select>
+                    <span id="csharpSelectionCounter" class="mapping-selection-counter"></span>
+                </div>
                 <div id="csharpMappingSelectionContainer"></div>
                 <div class="button-group" style="margin-top: 15px;">
                     <button class="btn-primary" data-action="obfuscateCode">🔒 Ausgewählte Elemente Verschleiern</button>
@@ -213,6 +220,13 @@
                     </span>
                     <svg class="chevron" viewBox="0 0 24 24" fill="currentColor"><path d="M7,10L12,15L17,10H7Z"/></svg>
                 </h3>
+                <div class="mapping-filter-row">
+                    <input type="text" id="sqlFilterInput" class="chip-input-field" placeholder="Filter: Original enthält…" aria-label="Auswahltabelle nach Original filtern">
+                    <select id="sqlFilterType" aria-label="Auswahltabelle nach Typ filtern">
+                        <option value="">Alle Typen</option>
+                    </select>
+                    <span id="sqlSelectionCounter" class="mapping-selection-counter"></span>
+                </div>
                 <div id="sqlMappingSelectionContainer"></div>
                 <div class="button-group" style="margin-top: 15px;">
                     <button class="btn-primary" data-action="obfuscateSqlCode">🔒 Ausgewählte SQL-Elemente Verschleiern</button>

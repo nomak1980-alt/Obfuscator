@@ -48,6 +48,17 @@ JSDOM.fromFile(path.join(__dirname, '..', 'obfuscator.html'), {
         it('Analyse-Button erzeugt Auswahl-Checkbox', doc.querySelectorAll('.csharp-mapping-checkbox').length > 0);
         it('Auswahl-Sektion sichtbar', doc.getElementById('csharpMappingSelectionSection').style.display === 'block');
 
+        // 2b) U8: Zähler reagiert live auf Checkbox-Änderungen (echte Event-Delegation)
+        const counterBefore = doc.getElementById('csharpSelectionCounter').textContent;
+        it('Zähler zeigt initial "x von x ausgewählt"', /^\d+ von \d+ ausgewählt$/.test(counterBefore));
+        const [checkedBefore, total] = counterBefore.match(/(\d+) von (\d+)/).slice(1).map(Number);
+        const firstCb = doc.querySelector('.csharp-mapping-checkbox');
+        firstCb.checked = false;
+        firstCb.dispatchEvent(new win.Event('change', { bubbles: true }));
+        it('Zähler aktualisiert sich nach Checkbox-Änderung', doc.getElementById('csharpSelectionCounter').textContent === `${checkedBefore - 1} von ${total} ausgewählt`);
+        firstCb.checked = true;
+        firstCb.dispatchEvent(new win.Event('change', { bubbles: true })); // Auswahl für den nächsten Schritt wiederherstellen
+
         // 3) Verschleiern via data-action
         click(doc.querySelector('[data-action="obfuscateCode"]'));
         it('Verschleiern ersetzt Bezeichner', !/\bBar\b/.test(doc.getElementById('obfuscatedCode').value));

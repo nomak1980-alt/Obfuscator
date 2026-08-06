@@ -260,6 +260,7 @@ function restoreCsharpSelection(selection) {
         if (item) cb.checked = item.checked;
     });
     syncSelectAll('csharpSelectAll', '.csharp-mapping-checkbox');
+    updateSelectionCounter('csharpSelectionCounter', '.csharp-mapping-checkbox');
 }
 
 function restoreSqlSelection(selection) {
@@ -271,6 +272,7 @@ function restoreSqlSelection(selection) {
         if (item) cb.checked = item.checked;
     });
     syncSelectAll('sqlSelectAll', '.sql-mapping-checkbox');
+    updateSelectionCounter('sqlSelectionCounter', '.sql-mapping-checkbox');
 }
 
 function applySections(sections) {
@@ -495,6 +497,46 @@ function syncSelectAll(selectAllId, checkboxSelector) {
     selectAll.indeterminate = checkedCount > 0 && checkedCount < all.length;
 }
 
+// U8: Filter/Zähler für große Auswahltabellen (600+ Zeilen sind sonst praktisch
+// unkontrollierbar). Reine Anzeige-Logik über style/Klassen, ändert nichts an
+// der eigentlichen Mapping-Logik.
+function updateSelectionCounter(counterId, checkboxSelector) {
+    const counter = document.getElementById(counterId);
+    if (!counter) return;
+    const boxes = document.querySelectorAll(checkboxSelector);
+    const checked = Array.from(boxes).filter(cb => cb.checked).length;
+    counter.textContent = boxes.length > 0 ? `${checked} von ${boxes.length} ausgewählt` : '';
+}
+
+function populateFilterTypes(selectId, checkboxSelector) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    const types = new Set(Array.from(document.querySelectorAll(checkboxSelector)).map(cb => cb.dataset.type).filter(Boolean));
+    select.innerHTML = '<option value="">Alle Typen</option>' +
+        Array.from(types).sort().map(t => `<option value="${Core.escapeHtml(t)}">${Core.escapeHtml(t)}</option>`).join('');
+}
+
+function applyMappingFilter(filterInputId, filterTypeId, checkboxSelector) {
+    const input = document.getElementById(filterInputId);
+    const select = document.getElementById(filterTypeId);
+    const textVal = (input && input.value || '').trim().toLowerCase();
+    const typeVal = (select && select.value) || '';
+    document.querySelectorAll(checkboxSelector).forEach(cb => {
+        const row = cb.closest('tr');
+        if (!row) return;
+        const original = (cb.dataset.original || cb.dataset.element || '').toLowerCase();
+        const matches = (!textVal || original.includes(textVal)) && (!typeVal || cb.dataset.type === typeVal);
+        row.classList.toggle('filtered-out', !matches);
+    });
+}
+
+function initMappingFilter(prefix) {
+    const checkboxSelector = `.${prefix}-mapping-checkbox`;
+    populateFilterTypes(`${prefix}FilterType`, checkboxSelector);
+    applyMappingFilter(`${prefix}FilterInput`, `${prefix}FilterType`, checkboxSelector);
+    updateSelectionCounter(`${prefix}SelectionCounter`, checkboxSelector);
+}
+
 async function copyToClipboard(sourceId, statusFn, label) {
     try {
         const text = document.getElementById(sourceId).value;
@@ -610,7 +652,10 @@ function renderCsharpSelectionTable(strMap, autoMap, typeMap) {
 
     document.getElementById('csharpSelectAll').addEventListener('change', function () {
         document.querySelectorAll('.csharp-mapping-checkbox').forEach(cb => cb.checked = this.checked);
+        updateSelectionCounter('csharpSelectionCounter', '.csharp-mapping-checkbox');
     });
+
+    initMappingFilter('csharp');
 }
 
 function obfuscateCode() {
@@ -862,12 +907,15 @@ function displaySqlMappingSelection(potentialMappings) {
 
     document.getElementById('sqlSelectAll').addEventListener('change', function () {
         document.querySelectorAll('.sql-mapping-checkbox').forEach(cb => cb.checked = this.checked);
+        updateSelectionCounter('sqlSelectionCounter', '.sql-mapping-checkbox');
     });
 
     const sqlSelSec = document.getElementById('sqlMappingSelectionSection');
     sqlSelSec.style.display = 'block';
     sqlSelSec.classList.remove('collapsed');
     if (sqlSelSec.scrollIntoView) sqlSelSec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    initMappingFilter('sql');
 }
 
 function obfuscateSqlCode() {
@@ -1137,6 +1185,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const importInput = document.getElementById('importFileInput');
     if (importInput) importInput.addEventListener('change', importState);
 
+    // U8: Filter-/Typ-Eingaben live auf die jeweilige Auswahltabelle anwenden.
+    ['csharp', 'sql'].forEach(prefix => {
+        const checkboxSelector = `.${prefix}-mapping-checkbox`;
+        const input = document.getElementById(`${prefix}FilterInput`);
+        const select = document.getElementById(`${prefix}FilterType`);
+        if (input) input.addEventListener('input', () => applyMappingFilter(`${prefix}FilterInput`, `${prefix}FilterType`, checkboxSelector));
+        if (select) select.addEventListener('change', () => applyMappingFilter(`${prefix}FilterInput`, `${prefix}FilterType`, checkboxSelector));
+    });
+
     // K4: Tabliste per Pfeiltasten/Home/End erreichbar machen (WCAG 2.1.1).
     const tablist = document.querySelector('[role="tablist"]');
     if (tablist) {
@@ -1193,9 +1250,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!ev.target || !ev.target.matches) return;
         if (ev.target.matches('.csharp-mapping-checkbox')) {
             syncSelectAll('csharpSelectAll', '.csharp-mapping-checkbox');
+            updateSelectionCounter('csharpSelectionCounter', '.csharp-mapping-checkbox');
             scheduleSave();
         } else if (ev.target.matches('.sql-mapping-checkbox')) {
             syncSelectAll('sqlSelectAll', '.sql-mapping-checkbox');
+            updateSelectionCounter('sqlSelectionCounter', '.sql-mapping-checkbox');
             scheduleSave();
         } else if (ev.target.id === 'csharpSelectAll' || ev.target.id === 'sqlSelectAll') {
             scheduleSave();

@@ -524,6 +524,40 @@ h4 {
     box-shadow: none;
 }
 
+/* U8: Filter-/Zähler-Zeile über großen Auswahltabellen. */
+.mapping-filter-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.mapping-filter-row .chip-input-field {
+    flex: 1;
+    min-width: 160px;
+}
+
+.mapping-filter-row select {
+    padding: 8px 12px;
+    border: 1px solid #2d2d2d;
+    border-radius: 8px;
+    background: #0f0f0f;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+}
+
+.mapping-selection-counter {
+    color: #a0a0a0;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.mapping-selection-table tr.filtered-out {
+    display: none;
+}
+
 /* U1: Muss am Dateiende stehen, damit diese Regeln (gleiche Spezifität) die
    unbedingten Regeln weiter oben (z.B. .code-row, .header-row) überschreiben. */
 @media (max-width: 768px) {
