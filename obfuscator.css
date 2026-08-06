@@ -243,13 +243,14 @@ button:active {
     cursor: pointer;
 }
 
-.info-box {
-    background: rgba(13, 123, 194, 0.1);
-    border: 1px solid rgba(13, 123, 194, 0.3);
-    border-radius: 10px;
-    padding: 15px;
-    margin: 20px 0;
-    color: #0d7bc2;
+.instructions-list {
+    padding-left: 22px;
+    color: #e0e0e0;
+    line-height: 1.8;
+}
+
+.instructions-list li {
+    margin-bottom: 4px;
 }
 
 .warning-box {

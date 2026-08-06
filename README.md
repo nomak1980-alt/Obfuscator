@@ -6,7 +6,7 @@ Eine einfache Web-Anwendung zur Verschleierung von C# und MS SQL Code für die s
 
 Dieser Obfuscator hilft dabei, vertrauliche Bezeichner im Code zu verschleiern, bevor du ihn an KI-Modelle wie ChatGPT, Claude, etc. weitergibst. Nach Erhalt der KI-Antwort kannst du den Code wieder zurückverwandeln.
 
-> ⚠️ **Grenze der Verschleierung:** Erkannt werden ausschließlich **Bezeichner** (Klassen, Methoden, Variablen, Tabellen, Spalten, …) anhand ihrer Deklaration bzw. Verwendung. Inhalte von **Zeichenketten, Kommentaren und Zahlenliteralen** – z. B. Connection-Strings, Passwörter, Kundennamen, Vertragsnummern – werden **nicht** erkannt und bleiben im Klartext. Vor dem Kopieren an die KI immer den verschleierten Code selbst prüfen.
+> ⚠️ **Grenze der Verschleierung:** Erkannt werden ausschließlich **Bezeichner** (Klassen, Methoden, Variablen, Tabellen, Spalten, …) anhand ihrer Deklaration bzw. Verwendung. Inhalte von **Zeichenketten, Kommentaren und Zahlenliteralen** – z. B. Connection-Strings, Passwörter, Kundennamen, Vertragsnummern – werden **nicht** erkannt und bleiben im Klartext. Ebenfalls nicht automatisch erkannt werden **Member-Zugriffe auf fremde Typen** (z. B. `kunde.Vertragsnummer` in einem Codeausschnitt, der `kunde` nicht deklariert) – solche Bezeichner bei Bedarf über String-Replace ergänzen. Vor dem Kopieren an die KI immer den verschleierten Code selbst prüfen.
 
 ## 🚀 Funktionen
 

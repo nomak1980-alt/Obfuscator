@@ -36,15 +36,28 @@
 
         <!-- C# Tab Content -->
         <div id="csharp-tab" class="tab-content active" role="tabpanel" aria-labelledby="tab-csharp">
-            <div class="info-box">
-                <strong>Anleitung:</strong> Füge deinen originalen C# Code ein → Trage Wörter für String-Replace ein →
-                Klicke "Analysieren" → Wähle Elemente aus → Klicke "Verschleiern" → Kopiere den verschleierten Code für KI →
-                Füge KI-Antwort ein → Klicke "Zurückverwandeln"
-            </div>
             <div class="warning-box">
                 ⚠️ <strong>Grenze:</strong> Erkannt werden nur Bezeichner (Klassen, Methoden, Variablen usw.) anhand ihrer
                 Deklaration. Inhalte von <strong>Zeichenketten, Kommentaren und Zahlen</strong> (z.&nbsp;B. Connection-Strings,
-                Passwörter, Kundennamen) werden <strong>nicht</strong> verschleiert und bleiben im Klartext.
+                Passwörter, Kundennamen) werden <strong>nicht</strong> verschleiert und bleiben im Klartext. Bezeichner aus
+                <strong>fremden Klassen</strong> (Member-Zugriffe wie <code>kunde.Vertragsnummer</code>) werden ebenfalls
+                nicht automatisch erkannt – bei Bedarf über String-Replace ergänzen.
+            </div>
+            <div class="section collapsed">
+                <h3 class="collapsible" title="Anleitung ein-/ausklappen">
+                    <span class="h3-title">Anleitung</span>
+                    <svg class="chevron" viewBox="0 0 24 24" fill="currentColor"><path d="M7,10L12,15L17,10H7Z"/></svg>
+                </h3>
+                <ol class="instructions-list">
+                    <li>Originalen C# Code einfügen</li>
+                    <li>Optional: Wörter für String-Replace eintragen</li>
+                    <li>„Code Analysieren" klicken</li>
+                    <li>Elemente in der Auswahltabelle abwählen, die nicht verschleiert werden sollen</li>
+                    <li>„Ausgewählte Elemente Verschleiern" klicken</li>
+                    <li>Verschleierten Code kopieren und an die KI übergeben</li>
+                    <li>KI-Antwort hier einfügen</li>
+                    <li>„Zurückverwandeln" klicken, um die Original-Bezeichner wiederherzustellen</li>
+                </ol>
             </div>
 
             <div class="code-row">
@@ -163,14 +176,26 @@
 
         <!-- MS SQL Tab Content -->
         <div id="mssql-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-mssql" hidden>
-            <div class="info-box">
-                <strong>Anleitung:</strong> Füge deine originalen SQL Queries ein → Optional: Trage Wörter für String-Replace ein (werden vor der Analyse ersetzt) → Klicke "SQL Analysieren" → Wähle
-                SQL-Elemente aus → Klicke "Verschleiern" → Kopiere den verschleierten Code für KI → Füge KI-Antwort ein → Klicke "Zurückverwandeln"
-            </div>
             <div class="warning-box">
                 ⚠️ <strong>Grenze:</strong> Erkannt werden nur Tabellen-, Spalten- und Objektnamen anhand ihrer Verwendung.
                 Inhalte von <strong>Zeichenketten, Kommentaren und Zahlen</strong> werden <strong>nicht</strong> verschleiert
                 und bleiben im Klartext.
+            </div>
+            <div class="section collapsed">
+                <h3 class="collapsible" title="Anleitung ein-/ausklappen">
+                    <span class="h3-title">Anleitung</span>
+                    <svg class="chevron" viewBox="0 0 24 24" fill="currentColor"><path d="M7,10L12,15L17,10H7Z"/></svg>
+                </h3>
+                <ol class="instructions-list">
+                    <li>Originale SQL Queries einfügen</li>
+                    <li>Optional: Wörter für String-Replace eintragen (werden vor der Analyse ersetzt)</li>
+                    <li>„SQL Analysieren" klicken</li>
+                    <li>SQL-Elemente in der Auswahltabelle abwählen, die nicht verschleiert werden sollen</li>
+                    <li>„Ausgewählte SQL-Elemente Verschleiern" klicken</li>
+                    <li>Verschleierten Code kopieren und an die KI übergeben</li>
+                    <li>KI-Antwort hier einfügen</li>
+                    <li>„Zurückverwandeln" klicken, um die Original-Bezeichner wiederherzustellen</li>
+                </ol>
             </div>
 
             <div class="code-row">
