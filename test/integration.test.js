@@ -530,6 +530,19 @@ console.log('\n# W2 – SQL-Auswahltabelle zeigt dieselben Platzhalter wie das E
         assert(new RegExp(`JOIN\\s+${shown.Orders}\\b`).test(obf), `erwartet JOIN ${shown.Orders} in: ${obf}`));
 })();
 
+console.log('\n# K2 – Warnung bei Geheimnismustern im Ergebnis');
+(() => {
+    resetCsharp();
+    setVal('originalCode', 'private const string CONN = "Server=prod-sql01;User=sa;Password=Geheim123;";');
+    ev("addChip('CONN', window.__csharpWords, 'stringReplaceChips')");
+    ev('analyzeCode()');
+    ev('obfuscateCode()');
+    it('Warnung erwähnt Geheimnisse im Klartext', () =>
+        assert(/Zugangsdaten|Geheimnisse/.test($('statusMessage').textContent), $('statusMessage').textContent));
+    it('Warnstatus ist error', () =>
+        assert($('statusMessage').className.includes('error'), $('statusMessage').className));
+})();
+
 console.log(`\n──────────────────────────────────────────`);
 console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);
 process.exit(fail ? 1 : 0);

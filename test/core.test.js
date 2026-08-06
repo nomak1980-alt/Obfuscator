@@ -384,6 +384,22 @@ it('einbuchstabige Aliases werden nicht als Elemente erkannt', () => {
     assert(names.includes('Orders'), 'Orders fehlt');
 });
 
+console.log('\n# K2 – Geheimnis-Heuristik (findSecretHints)');
+it('erkennt Password= in einem String-Literal', () => {
+    const code = 'private const string CS_FIELD_1 = "Server=prod-sql01;User=sa;Password=Geheim123;";';
+    const hits = C.findSecretHints(code);
+    assert(hits.length === 1 && hits[0] === 1, 'erwartet Treffer in Zeile 1: ' + JSON.stringify(hits));
+});
+it('erkennt mehrere betroffene Zeilen', () => {
+    const code = 'var a = 1;\nvar apiKey = "abc";\nvar b = 2;\nvar bearer = "Bearer xyz";';
+    const hits = C.findSecretHints(code);
+    assert(hits.includes(2) && hits.includes(4), 'erwartet Zeilen 2 und 4: ' + JSON.stringify(hits));
+});
+it('liefert leeres Array ohne Geheimnismuster', () => {
+    const code = 'public class CS_CLASS_1 { public void CS_METHOD_1() { } }';
+    eq(C.findSecretHints(code).length, 0);
+});
+
 console.log(`\n──────────────────────────────────────────`);
 console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);
 process.exit(fail ? 1 : 0);

@@ -429,6 +429,14 @@ function unreplacedWarning(originals) {
     return ` Achtung: ${originals.length} abgewählte(r) Begriff(e) bleibt/bleiben im Klartext: ${preview}.`;
 }
 
+// K2: Strings, Kommentare und Zahlen werden nie verschleiert – diese Heuristik
+// warnt, wenn das Ergebnis trotzdem wie Zugangsdaten/Geheimnisse aussieht.
+function secretHintWarning(obfuscatedCode) {
+    const lines = Core.findSecretHints(obfuscatedCode);
+    if (lines.length === 0) return '';
+    return ` ⚠ Mögliche Zugangsdaten/Geheimnisse in Zeile ${lines.join(', ')} entdeckt – Strings, Kommentare und Zahlen werden von diesem Werkzeug NICHT verschleiert.`;
+}
+
 // Gemeinsames Rendern einer "Original → Platzhalter"-Liste.
 function renderMappingList(divId, map, emptyText) {
     const div = document.getElementById(divId);
@@ -636,7 +644,7 @@ function obfuscateCode() {
     const total = stringReplaceMapping.size + csharpAutoMapping.size;
     document.getElementById('csharpUsedMappingSection').style.display = total > 0 ? 'block' : 'none';
 
-    const warning = unreplacedWarning(deselectedOriginals);
+    const warning = unreplacedWarning(deselectedOriginals) + secretHintWarning(obfuscatedCode);
     const hasIssue = replacedCount === 0 || warning;
     showStatus(
         `Code ${replacedCount === 0 ? 'NICHT verschleiert' : 'verschleiert'}! ${replacedCount} Ersetzung(en) vorgenommen.${warning}`,
@@ -880,7 +888,7 @@ function obfuscateSqlCode() {
     const totalReplaced = sqlMapping.size + sqlStringReplaceMapping.size;
     document.getElementById('sqlUsedMappingSection').style.display = totalReplaced > 0 ? 'block' : 'none';
 
-    const warning = unreplacedWarning(deselectedOriginals);
+    const warning = unreplacedWarning(deselectedOriginals) + secretHintWarning(obfuscatedCode);
     const hasIssue = replacedCount === 0 || warning;
     showSqlStatus(
         `SQL Code ${replacedCount === 0 ? 'NICHT verschleiert' : 'verschleiert'}! ${replacedCount} Ersetzung(en) vorgenommen (${sqlStringReplaceMapping.size} Strings, ${sqlMapping.size} SQL-Elemente).${warning}`,

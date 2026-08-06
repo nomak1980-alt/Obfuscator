@@ -136,6 +136,25 @@
         return out;
     }
 
+    // K2: Die Analyse erkennt nur Bezeichner anhand ihrer Deklarations-Syntax –
+    // Inhalte von Strings, Kommentaren und Zahlenliteralen bleiben unangetastet.
+    // Diese Heuristik prüft das VERSCHLEIERTE Ergebnis auf typische
+    // Geheimnismuster, die trotzdem im Klartext stehen geblieben sein könnten,
+    // und liefert die betroffenen Zeilennummern (1-basiert, dedupliziert).
+    const SECRET_HINT_PATTERNS = [
+        /password\s*=/i, /pwd\s*=/i, /\bserver\s*=/i, /data\s+source\s*=/i,
+        /api[_-]?key/i, /bearer\s+\S/i, /accountkey\s*=/i, /secret\s*=/i, /connectionstring/i
+    ];
+
+    function findSecretHints(code) {
+        const lines = String(code).split('\n');
+        const hitLines = [];
+        lines.forEach((line, idx) => {
+            if (SECRET_HINT_PATTERNS.some(rx => rx.test(line))) hitLines.push(idx + 1);
+        });
+        return hitLines;
+    }
+
     // ── C# ────────────────────────────────────────────────────────────────
 
     const CS_PREFIX = 'STR_PLACEHOLDER_';
@@ -599,6 +618,7 @@
         applyReplacements,
         reverseReplacements,
         analyzeCSharp,
+        findSecretHints,
         isSqlReservedWord,
         analyzeSqlStringReplace,
         analyzeSqlElements,
