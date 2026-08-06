@@ -100,18 +100,6 @@
                 </div>
             </div>
 
-            <div class="section" id="csharpUsedMappingSection" style="display: none;">
-                <h3>
-                    <span class="h3-title">
-                        <svg class="icon" viewBox="0 0 24 24">
-                            <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z" />
-                        </svg>
-                        Verwendete Mappings
-                    </span>
-                </h3>
-                <div class="mapping-display" id="csharpUsedMappingDisplay"></div>
-            </div>
-
             <div class="section" id="obfuscatedSection" style="display: none;">
                 <h3>
                     <span class="h3-title">
@@ -124,6 +112,18 @@
                     <button class="btn-secondary" data-action="copyObfuscated">📋 Code Kopieren</button>
                 </h3>
                 <textarea id="obfuscatedCode" aria-label="Verschleierter C# Code" placeholder="Hier erscheint dein verschleierter Code..."></textarea>
+            </div>
+
+            <div class="section" id="csharpUsedMappingSection" style="display: none;">
+                <h3>
+                    <span class="h3-title">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z" />
+                        </svg>
+                        Verwendete Mappings
+                    </span>
+                </h3>
+                <div class="mapping-display" id="csharpUsedMappingDisplay"></div>
             </div>
 
             <div class="section" id="aiResponseSection" style="display: none;">
@@ -219,19 +219,6 @@
                 </div>
             </div>
 
-            <div class="section" id="sqlUsedMappingSection" style="display: none;">
-                <h3>
-                    <span class="h3-title">
-                        <svg class="icon" viewBox="0 0 24 24">
-                            <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z" />
-                        </svg>
-                        Verwendete Mappings
-                    </span>
-                </h3>
-                <div class="mapping-display" id="sqlUsedMappingDisplay"></div>
-            </div>
-
-
             <div class="section" id="sqlObfuscatedSection" style="display: none;">
                 <h3>
                     <span class="h3-title">
@@ -244,6 +231,18 @@
                     <button class="btn-secondary" data-action="copySqlObfuscated">📋 Code Kopieren</button>
                 </h3>
                 <textarea id="sqlObfuscatedCode" aria-label="Verschleierter SQL Code" placeholder="Hier erscheint dein verschleierter SQL Code..."></textarea>
+            </div>
+
+            <div class="section" id="sqlUsedMappingSection" style="display: none;">
+                <h3>
+                    <span class="h3-title">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z" />
+                        </svg>
+                        Verwendete Mappings
+                    </span>
+                </h3>
+                <div class="mapping-display" id="sqlUsedMappingDisplay"></div>
             </div>
 
             <div class="section" id="sqlAiResponseSection" style="display: none;">
@@ -274,7 +273,7 @@
             </div>
         </div>
 
-        <h4>by Robert Schellenberger <span class="version-badge">v1.0</span></h4>
+        <h4>by Robert Schellenberger <span class="version-badge">v1.0.0</span></h4>
     </div>
 
     <script src="obfuscator-core.js"></script>

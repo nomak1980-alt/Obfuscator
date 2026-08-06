@@ -36,5 +36,14 @@ foreach ($file in $files) {
     Write-Host "  Kopiert: $file"
 }
 
+# U12: package.json ist die einzige Versionsquelle - der Badge in der
+# kopierten HTML wird beim Publish daraus gesetzt statt separat gepflegt.
+$packageJson = Get-Content (Join-Path $PSScriptRoot "package.json") -Raw | ConvertFrom-Json
+$version = $packageJson.version
+$htmlPath = Join-Path $publishDir "obfuscator.html"
+(Get-Content $htmlPath -Raw) -replace '(?<=class="version-badge">v)[\d.]+(?=</span>)', $version |
+    Set-Content $htmlPath -NoNewline
+Write-Host "  Version-Badge gesetzt: v$version"
+
 Write-Host ""
 Write-Host "Publish-Ordner bereit: $publishDir"
