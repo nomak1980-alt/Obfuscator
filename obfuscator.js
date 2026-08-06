@@ -632,6 +632,7 @@ function obfuscateCode() {
     stringReplaceMapping = new Map();
     replacementHistory = [];
     csharpAutoMapping = new Map();
+    csharpAutoTypeMap = new Map(); // R4: sonst auf dem Stand der letzten Analyse eingefroren
 
     selectedCheckboxes.forEach(cb => {
         const original = cb.dataset.original;
@@ -641,6 +642,7 @@ function obfuscateCode() {
             replacementHistory.push({ placeholder, original });
         } else {
             csharpAutoMapping.set(original, placeholder);
+            csharpAutoTypeMap.set(original, cb.dataset.type || '');
         }
     });
     reverseStringReplaceMapping = buildReverse(stringReplaceMapping);

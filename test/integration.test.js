@@ -57,8 +57,8 @@ ev(coreSrc);
 // Harness die per `let` deklarierten Maps lesen/zurücksetzen kann.
 const ACCESSOR = `
 ;window.__t = {
-  size: n => ({ stringReplaceMapping, sqlStringReplaceMapping, sqlMapping, csharpAutoMapping }[n]).size,
-  has: (n, k) => ({ stringReplaceMapping, sqlStringReplaceMapping, sqlMapping, csharpAutoMapping }[n]).has(k),
+  size: n => ({ stringReplaceMapping, sqlStringReplaceMapping, sqlMapping, csharpAutoMapping, csharpAutoTypeMap }[n]).size,
+  has: (n, k) => ({ stringReplaceMapping, sqlStringReplaceMapping, sqlMapping, csharpAutoMapping, csharpAutoTypeMap }[n]).has(k),
   resetCs: () => {
     stringReplaceMapping = new Map(); reverseStringReplaceMapping = new Map(); replacementHistory = [];
     csharpAutoMapping = new Map(); reverseCsharpAutoMapping = new Map(); csharpAutoTypeMap = new Map();
@@ -613,6 +613,22 @@ console.log('\n# R3 – zurückgebliebene Platzhalter nach dem Zurückverwandeln
         assert($('statusMessage').textContent.includes('CS_CLASS_99'), $('statusMessage').textContent));
     it('Warnstatus ist error', () =>
         assert($('statusMessage').className.includes('error'), $('statusMessage').className));
+})();
+
+console.log('\n# R4 – csharpAutoTypeMap wird beim Verschleiern mit der Auswahl synchronisiert');
+(() => {
+    resetCsharpAuto();
+    setVal('originalCode', 'public class CustomerService { public void GetOrder(int orderId) { } }');
+    ev('analyzeCode()');
+    // 'orderId' (Parameter) abwählen, nur die Klasse bleibt ausgewählt.
+    doc.querySelectorAll('.csharp-mapping-checkbox').forEach(cb => {
+        if (cb.dataset.original === 'orderId') cb.checked = false;
+    });
+    ev('obfuscateCode()');
+    it('csharpAutoTypeMap enthält nur noch ausgewählte Elemente', () =>
+        assert(!win.__t.has('csharpAutoTypeMap', 'orderId'), 'orderId sollte nach Abwahl nicht mehr in csharpAutoTypeMap stehen'));
+    it('csharpAutoTypeMap enthält CustomerService weiterhin', () =>
+        assert(win.__t.has('csharpAutoTypeMap', 'CustomerService'), 'CustomerService fehlt in csharpAutoTypeMap'));
 })();
 
 console.log(`\n──────────────────────────────────────────`);
