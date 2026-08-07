@@ -21,6 +21,7 @@ Dieser Obfuscator hilft dabei, vertrauliche Bezeichner im Code zu verschleiern, 
 - Auch Typ-Verwendungen werden erfasst: `new Foo()`, Parameter-/foreach-/Rückgabe-Typen sowie generische Argumente (`List<SvcRaum>` → `SvcRaum`) gelten als Klassen.
 - Parameter werden zusätzlich an Aufrufstellen erkannt: benannte Argumente (`Foo(iIX: …)`) und Lambda-Parameter (`x => …`).
 - Bekannte C#-Keywords und Framework-Typen (`List`, `Task`, `Exception`, …) werden nicht verschleiert.
+- Umlaute und andere Unicode-Buchstaben in Bezeichnern werden vollständig erkannt (`Kundenprüfung`, `Größe`, `Gebäude`) – auch im SQL-Tab und beim String-Replace.
 
 ### **MS SQL – automatische Elementerkennung**
 - Erkennt Tabellen, Felder, Prozeduren, Funktionen und Objekte über SQL-Syntax (FROM, JOIN, SELECT, ON, …).
@@ -39,7 +40,8 @@ Dieser Obfuscator hilft dabei, vertrauliche Bezeichner im Code zu verschleiern, 
 ### **Persistenz & Backup**
 - Automatisches Speichern im Browser (localStorage), versioniert.
 - Export/Import des kompletten Zustands als JSON-Datei (mit Format-Validierung beim Import).
-- ⚠️ **Eingaben bleiben dauerhaft im Browser gespeichert** – Originalcode, verschleierter Code, KI-Antwort und Mapping, ohne Ablaufdatum. Bei Bedarf über „Alles Löschen“ manuell entfernen.
+- ⚠️ **Eingaben bleiben dauerhaft im Browser gespeichert** – Originalcode, verschleierter Code, KI-Antwort und Mapping, ohne Ablaufdatum. Bei Bedarf über „C#-Daten löschen“ bzw. „SQL-Daten löschen“ entfernen; beide Buttons wirken nur auf ihren eigenen Tab.
+- Sehr große Eingaben (ab ca. 0,5 MB) passen unter Umständen nicht mehr in den Browser-Speicher. Die Anwendung fragt dann vorab nach und meldet ein fehlgeschlagenes Speichern – der Arbeitsstand wäre nach einem Neuladen verloren. Für solche Fälle vor dem Schließen exportieren.
 
 ## 🌐 Nutzung
 
@@ -113,8 +115,8 @@ Die Logik ist bewusst vom UI getrennt:
 Tests laufen headless in Node (jsdom als Dev-Abhängigkeit):
 
 ```bash
-npm install   # einmalig: installiert jsdom
-npm test      # Core-, Integrations- und Smoke-Tests
+npm install   # einmalig: installiert jsdom und Playwright
+npm test      # alle fünf Test-Suiten
 ```
 
 - `test/core.test.js` – reine Logik (DOM-frei, schnell)
@@ -132,16 +134,21 @@ npm run coverage  # Coverage-Bericht (c8) für obfuscator.js/obfuscator-core.js
 
 ```
 Obfuscator/
-├── obfuscator.html          # Hauptanwendung (Markup)
-├── obfuscator.css           # Styles
-├── obfuscator-core.js       # Reine Obfuskierungslogik (DOM-frei, testbar)
-├── obfuscator.js            # DOM-/UI-/Persistenz-Schicht
-├── test/                    # Node-Tests (core, integration, smoke)
-│   ├── core.test.js         # Logik-Tests (kein DOM)
-│   ├── integration.test.js  # DOM-Schicht via jsdom
-│   └── smoke.test.js        # End-to-End via echte HTML
-├── package.json             # npm test + Dev-Abhängigkeiten
-└── README.md                # Dokumentation
+├── obfuscator.html            # Hauptanwendung (Markup)
+├── obfuscator.css             # Styles
+├── obfuscator-core.js         # Reine Obfuskierungslogik (DOM-frei, testbar)
+├── obfuscator.js              # DOM-/UI-/Persistenz-Schicht
+├── test/
+│   ├── core.test.js           # Logik-Tests (kein DOM)
+│   ├── integration.test.js    # DOM-Schicht via jsdom
+│   ├── persistence.test.js    # Speichern/Laden ohne Mock
+│   ├── smoke.test.js          # End-to-End via echte HTML
+│   └── layout.test.js         # Layout/Mobile via Playwright-Chromium
+├── .github/workflows/test.yml # CI: Lint + alle Tests
+├── eslint.config.js           # ESLint (Flat Config), Warnungen brechen den Build
+├── publish.ps1                # Tests + Publish-Ordner + Versions-Badge
+├── package.json               # Skripte + Dev-Abhängigkeiten
+└── README.md                  # Dokumentation
 ```
 
 ## 🔮 Zukünftige Erweiterungen
