@@ -15,7 +15,6 @@
 // Vorwärts-Maps + History. Reverse-Maps werden NICHT persistiert, sondern bei
 // Bedarf aus den Vorwärts-Maps abgeleitet (siehe buildReverse/loadState).
 let stringReplaceMapping = new Map();
-let reverseStringReplaceMapping = new Map();
 let replacementHistory = [];
 let csharpAutoMapping = new Map();
 let reverseCsharpAutoMapping = new Map();
@@ -27,10 +26,12 @@ let reverseSqlMapping = new Map();
 let currentTab = 'csharp';
 let csharpReplaceWords = [];
 let sqlReplaceWords = [];
-// Code-Stand zum Zeitpunkt der letzten Analyse (K1: verhindert Verschleiern
-// mit veralteten Mappings, wenn der Nutzer den Code danach ändert).
-let lastAnalyzedCsharpCode = null;
-let lastAnalyzedSqlCode = null;
+// Fingerabdruck des Code-Stands zum Zeitpunkt der letzten Analyse (K1:
+// verhindert Verschleiern mit veralteten Mappings, wenn der Nutzer den Code
+// danach ändert). W10: Fingerabdruck statt Volltext – der komplette Quelltext
+// lag sonst ein zweites Mal im localStorage.
+let lastAnalyzedCsharpFp = null;
+let lastAnalyzedSqlFp = null;
 // R2: verhindert Zurückverwandeln, solange nicht tatsächlich (mit dieser
 // Auswahl) verschleiert wurde – reine Analyse befüllt die Auto-Mapping-Maps
 // bereits, was sonst ein "Zurückverwandeln" ohne vorherige Bestätigung erlaubt.
@@ -50,13 +51,22 @@ const STORAGE_KEY = 'obfuscatorAppState_v1';
 const CURRENT_VERSION = 1;
 // Schutzschwelle: sehr große Eingaben können die (synchrone) Regex-Analyse den
 // UI-Thread blockieren lassen. Ab dieser Größe wird der Nutzer vorab gefragt.
-const MAX_SAFE_INPUT = 1000000;
+// W10: Der gespeicherte Zustand ist ein Vielfaches des Quelltextes; oberhalb
+// dieser Schwelle passt er nicht mehr in den localStorage (typisch 5 MB), und
+// der Arbeitsstand wäre nach dem nächsten Neuladen weg. Die Schwelle liegt
+// deshalb dort, wo das Speichern zu kippen beginnt – nicht erst bei 1 MB.
+const MAX_SAFE_INPUT = 500000;
 
 // Liefert false, wenn der Nutzer die Verarbeitung sehr großer Eingaben abbricht.
 function confirmLargeInput(code) {
     if (code.length <= MAX_SAFE_INPUT) return true;
     const mb = (code.length / 1048576).toFixed(1);
-    return confirm(`Die Eingabe ist sehr groß (${mb} MB). Die Verarbeitung kann den Browser kurz einfrieren. Fortfahren?`);
+    return confirm(
+        `Die Eingabe ist sehr groß (${mb} MB).\n\n` +
+        '• Die Verarbeitung kann den Browser kurz einfrieren.\n' +
+        '• Der Arbeitsstand kann möglicherweise nicht mehr automatisch gespeichert werden ' +
+        '(Browser-Speicher voll) und wäre nach einem Neuladen verloren.\n\n' +
+        'Fortfahren?');
 }
 let saveTimer = null;
 let restoring = false;
@@ -137,15 +147,28 @@ function scheduleSave() {
     saveTimer = setTimeout(saveState, 300);
 }
 
+// W10: Die Auswahl ist das mit Abstand größte Feld im gespeicherten Zustand.
+// Als Array-Tupel statt als Objekt je Zeile abgelegt, spart das rund die Hälfte,
+// weil die vier Schlüsselnamen nicht tausendfach wiederholt werden.
+// Reihenfolge C#:  [original, placeholder, type, checked]
+// Reihenfolge SQL: [element,  obfuscated,  type, checked]
+function packSelection(rows) {
+    return rows.map(r => [r[0], r[1], r[2], r[3] ? 1 : 0]);
+}
+
+// Nimmt beide Formate an: das kompakte Tupel und das Objektformat vor W10.
+function unpackSelection(selection, keyA, keyB) {
+    if (!Array.isArray(selection)) return [];
+    return selection.map(s => Array.isArray(s)
+        ? { [keyA]: s[0], [keyB]: s[1], type: s[2] || '', checked: !!s[3] }
+        : { [keyA]: s[keyA], [keyB]: s[keyB] || '', type: s.type || '', checked: !!s.checked });
+}
+
 function captureCsharpSelection() {
     const rows = document.querySelectorAll('.csharp-mapping-checkbox');
     if (rows.length === 0) return null;
-    return Array.from(rows).map(cb => ({
-        original: cb.dataset.original,
-        placeholder: cb.dataset.placeholder,
-        type: cb.dataset.type || '',
-        checked: cb.checked
-    }));
+    return packSelection(Array.from(rows).map(cb =>
+        [cb.dataset.original, cb.dataset.placeholder, cb.dataset.type || '', cb.checked]));
 }
 
 function captureSqlSelection() {
@@ -153,12 +176,8 @@ function captureSqlSelection() {
     if (rows.length === 0) return null;
     // Daten aus den dataset-Attributen lesen (nicht aus gerendertem Zellen-Text),
     // damit die Persistenz nicht an der Tabellenstruktur hängt.
-    return Array.from(rows).map(cb => ({
-        element: cb.dataset.element,
-        type: cb.dataset.type,
-        obfuscated: cb.dataset.obfuscated || '',
-        checked: cb.checked
-    }));
+    return packSelection(Array.from(rows).map(cb =>
+        [cb.dataset.element, cb.dataset.obfuscated || '', cb.dataset.type || '', cb.checked]));
 }
 
 // U7: neben style.display auch die collapsed-Klasse erfassen, damit ein
@@ -191,8 +210,7 @@ function saveStateImpl() {
             stringReplaceMapping: Array.from(stringReplaceMapping.entries()),
             replacementHistory: replacementHistory,
             csharpAutoMapping: Array.from(csharpAutoMapping.entries()),
-            csharpAutoTypeMap: Array.from(csharpAutoTypeMap.entries()),
-            lastAnalyzedCode: lastAnalyzedCsharpCode,
+            lastAnalyzedFp: lastAnalyzedCsharpFp,
             hasObfuscated: hasObfuscatedCsharp,
             selection: captureCsharpSelection(),
             sections: captureSections([
@@ -211,7 +229,7 @@ function saveStateImpl() {
             sqlStringReplaceWords: [...sqlReplaceWords],
             sqlMapping: Array.from(sqlMapping.entries()),
             sqlStringReplaceMapping: Array.from(sqlStringReplaceMapping.entries()),
-            lastAnalyzedCode: lastAnalyzedSqlCode,
+            lastAnalyzedFp: lastAnalyzedSqlFp,
             hasObfuscated: hasObfuscatedSql,
             selection: captureSqlSelection(),
             sections: captureSections([
@@ -250,7 +268,8 @@ function clearTabState(tabKey) {
     } catch (e) { /* ignore */ }
 }
 
-function restoreCsharpSelection(selection) {
+function restoreCsharpSelection(packed) {
+    const selection = unpackSelection(packed, 'original', 'placeholder');
     const strMap = new Map();
     const autoMap = new Map();
     const typeMap = new Map();
@@ -276,7 +295,8 @@ function restoreCsharpSelection(selection) {
     updateSelectionCounter('csharpSelectionCounter', '.csharp-mapping-checkbox');
 }
 
-function restoreSqlSelection(selection) {
+function restoreSqlSelection(packed) {
+    const selection = unpackSelection(packed, 'element', 'obfuscated');
     const potentialMappings = new Map();
     selection.forEach(s => potentialMappings.set(s.element, { obfuscated: s.obfuscated, type: s.type }));
     displaySqlMappingSelection(potentialMappings);
@@ -339,11 +359,14 @@ function loadState() {
             }
 
             stringReplaceMapping = new Map(cs.stringReplaceMapping || []);
-            reverseStringReplaceMapping = buildReverse(stringReplaceMapping);
             csharpAutoMapping = new Map(cs.csharpAutoMapping || []);
             reverseCsharpAutoMapping = buildReverse(csharpAutoMapping);
-            csharpAutoTypeMap = new Map(cs.csharpAutoTypeMap || []);
-            lastAnalyzedCsharpCode = typeof cs.lastAnalyzedCode === 'string' ? cs.lastAnalyzedCode : null;
+            // W10: csharpAutoTypeMap wird nicht mehr persistiert – es wird in
+            // restoreCsharpSelection() aus der selection abgeleitet.
+            csharpAutoTypeMap = new Map();
+            // Altformat (vor W10) hielt den Volltext – daraus den Fingerabdruck ableiten.
+            lastAnalyzedCsharpFp = typeof cs.lastAnalyzedFp === 'string' ? cs.lastAnalyzedFp
+                : (typeof cs.lastAnalyzedCode === 'string' ? Core.fingerprint(cs.lastAnalyzedCode) : null);
             hasObfuscatedCsharp = !!cs.hasObfuscated;
             replacementHistory = cs.replacementHistory || [];
             if (stringReplaceMapping.size > 0 && replacementHistory.length === 0) {
@@ -383,7 +406,8 @@ function loadState() {
             reverseSqlMapping = buildReverse(sqlMapping);
             sqlStringReplaceMapping = new Map(sq.sqlStringReplaceMapping || []);
             reverseSqlStringReplaceMapping = buildReverse(sqlStringReplaceMapping);
-            lastAnalyzedSqlCode = typeof sq.lastAnalyzedCode === 'string' ? sq.lastAnalyzedCode : null;
+            lastAnalyzedSqlFp = typeof sq.lastAnalyzedFp === 'string' ? sq.lastAnalyzedFp
+                : (typeof sq.lastAnalyzedCode === 'string' ? Core.fingerprint(sq.lastAnalyzedCode) : null);
             hasObfuscatedSql = !!sq.hasObfuscated;
 
             if (sq.selection && sq.selection.length > 0) restoreSqlSelection(sq.selection);
@@ -501,13 +525,28 @@ function renderMappingList(divId, map, emptyText) {
     });
 }
 
+// U13: Der Filter (U8) blendet Zeilen über die Klasse 'filtered-out' aus.
+// „Alle auswählen", die Kopf-Checkbox und der Zähler dürfen sich nur auf das
+// beziehen, was der Nutzer gerade sieht – sonst ändert ein Klick unbemerkt den
+// Schutzstatus von Bezeichnern außerhalb des Filters.
+function allCheckboxes(checkboxSelector) {
+    return Array.from(document.querySelectorAll(checkboxSelector));
+}
+
+function visibleCheckboxes(checkboxSelector) {
+    return allCheckboxes(checkboxSelector).filter(cb => {
+        const row = cb.closest('tr');
+        return !row || !row.classList.contains('filtered-out');
+    });
+}
+
 function syncSelectAll(selectAllId, checkboxSelector) {
     const selectAll = document.getElementById(selectAllId);
     if (!selectAll) return;
-    const all = Array.from(document.querySelectorAll(checkboxSelector));
-    const checkedCount = all.filter(cb => cb.checked).length;
-    selectAll.checked = checkedCount === all.length && all.length > 0;
-    selectAll.indeterminate = checkedCount > 0 && checkedCount < all.length;
+    const visible = visibleCheckboxes(checkboxSelector);
+    const checkedCount = visible.filter(cb => cb.checked).length;
+    selectAll.checked = checkedCount === visible.length && visible.length > 0;
+    selectAll.indeterminate = checkedCount > 0 && checkedCount < visible.length;
 }
 
 // U8: Filter/Zähler für große Auswahltabellen (600+ Zeilen sind sonst praktisch
@@ -516,9 +555,18 @@ function syncSelectAll(selectAllId, checkboxSelector) {
 function updateSelectionCounter(counterId, checkboxSelector) {
     const counter = document.getElementById(counterId);
     if (!counter) return;
-    const boxes = document.querySelectorAll(checkboxSelector);
-    const checked = Array.from(boxes).filter(cb => cb.checked).length;
-    counter.textContent = boxes.length > 0 ? `${checked} von ${boxes.length} ausgewählt` : '';
+    const all = allCheckboxes(checkboxSelector);
+    if (all.length === 0) { counter.textContent = ''; return; }
+    const checked = all.filter(cb => cb.checked).length;
+    const visible = visibleCheckboxes(checkboxSelector);
+    // U13: Bei aktivem Filter beide Mengen ausweisen – sonst bezieht sich der
+    // Zähler auf Zeilen, die gar nicht auf dem Bildschirm stehen.
+    if (visible.length === all.length) {
+        counter.textContent = `${checked} von ${all.length} ausgewählt`;
+        return;
+    }
+    const visChecked = visible.filter(cb => cb.checked).length;
+    counter.textContent = `${visChecked} von ${visible.length} sichtbar ausgewählt (${checked} von ${all.length} gesamt)`;
 }
 
 function populateFilterTypes(selectId, checkboxSelector) {
@@ -541,6 +589,11 @@ function applyMappingFilter(filterInputId, filterTypeId, checkboxSelector) {
         const matches = (!textVal || original.includes(textVal)) && (!typeVal || cb.dataset.type === typeVal);
         row.classList.toggle('filtered-out', !matches);
     });
+    // U13: Kopf-Checkbox und Zähler beziehen sich auf die sichtbare Menge –
+    // nach jeder Filteränderung neu ableiten.
+    const prefix = checkboxSelector.startsWith('.sql') ? 'sql' : 'csharp';
+    syncSelectAll(`${prefix}SelectAll`, checkboxSelector);
+    updateSelectionCounter(`${prefix}SelectionCounter`, checkboxSelector);
 }
 
 function initMappingFilter(prefix) {
@@ -578,7 +631,6 @@ function analyzeCode() {
     // Schritt 1: String-Replace-Analyse (bestehend)
     const strAnalyzed = Core.analyzeCSharp(originalCode, [...csharpReplaceWords]);
     stringReplaceMapping = new Map(strAnalyzed.map(e => [e.original, e.placeholder]));
-    reverseStringReplaceMapping = buildReverse(stringReplaceMapping);
 
     // Schritt 2: Auto-Analyse (Duplikate aus String-Replace herausfiltern)
     const autoAnalyzed = Core.analyzeCSharpElements(originalCode)
@@ -592,7 +644,7 @@ function analyzeCode() {
         return;
     }
 
-    lastAnalyzedCsharpCode = originalCode;
+    lastAnalyzedCsharpFp = Core.fingerprint(originalCode);
     hasObfuscatedCsharp = false;
     renderCsharpSelectionTable(stringReplaceMapping, csharpAutoMapping, csharpAutoTypeMap);
     const csharpSelSec = document.getElementById('csharpMappingSelectionSection');
@@ -617,8 +669,22 @@ function analyzeCode() {
     saveState();
 }
 
-function renderCsharpSelectionTable(strMap, autoMap, typeMap) {
-    const container = document.getElementById('csharpMappingSelectionContainer');
+/**
+ * W5: Gemeinsamer Renderer für beide Auswahltabellen. Vorher existierte er
+ * zweimal in nahezu identischer Form (renderCsharpSelectionTable /
+ * displaySqlMappingSelection) – genau das Muster, das W2 erzeugt hat: eine
+ * Korrektur landete nur in einer der beiden Kopien.
+ *
+ * Die Zweige unterscheiden sich allein in den Namen der dataset-Attribute und
+ * der letzten Spaltenüberschrift; beides kommt aus der Konfiguration.
+ *
+ * @param {{prefix:string, container:string, nameKey:string, valueKey:string,
+ *          valueHeader:string}} cfg
+ * @param {Array<{name:string, value:string, type:string}>} rows in Anzeigereihenfolge
+ */
+function renderSelectionTable(cfg, rows) {
+    const container = document.getElementById(cfg.container);
+    if (!container) return;
     container.innerHTML = '';
 
     const table = document.createElement('table');
@@ -627,35 +693,23 @@ function renderCsharpSelectionTable(strMap, autoMap, typeMap) {
     const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');
     headerRow.innerHTML = `
-        <th style="width: 50px;"><input type="checkbox" id="csharpSelectAll" aria-label="Alle auswählen" checked></th>
+        <th style="width: 50px;"><input type="checkbox" id="${cfg.prefix}SelectAll" aria-label="Alle auswählen" checked></th>
         <th>Typ</th>
         <th>Original</th>
-        <th>Platzhalter</th>
+        <th>${Core.escapeHtml(cfg.valueHeader)}</th>
     `;
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
     const tbody = document.createElement('tbody');
-
-    strMap.forEach((placeholder, original) => {
+    rows.forEach(({ name, value, type }) => {
+        const esc = Core.escapeHtml;
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td><input type="checkbox" class="csharp-mapping-checkbox" data-original="${Core.escapeHtml(original)}" data-placeholder="${Core.escapeHtml(placeholder)}" data-type="String" aria-label="${Core.escapeHtml(original)} verschleiern" checked></td>
-            <td>String</td>
-            <td class="original">${Core.escapeHtml(original)}</td>
-            <td class="obfuscated">${Core.escapeHtml(placeholder)}</td>
-        `;
-        tbody.appendChild(row);
-    });
-
-    autoMap.forEach((placeholder, original) => {
-        const typLabel = typeMap ? (typeMap.get(original) || '') : '';
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td><input type="checkbox" class="csharp-mapping-checkbox" data-original="${Core.escapeHtml(original)}" data-placeholder="${Core.escapeHtml(placeholder)}" data-type="${Core.escapeHtml(typLabel)}" aria-label="${Core.escapeHtml(original)} verschleiern" checked></td>
-            <td>${Core.escapeHtml(typLabel)}</td>
-            <td class="original">${Core.escapeHtml(original)}</td>
-            <td class="obfuscated">${Core.escapeHtml(placeholder)}</td>
+            <td><input type="checkbox" class="${cfg.prefix}-mapping-checkbox" data-${cfg.nameKey}="${esc(name)}" data-${cfg.valueKey}="${esc(value)}" data-type="${esc(type)}" aria-label="${esc(name)} verschleiern" checked></td>
+            <td>${esc(type)}</td>
+            <td class="original">${esc(name)}</td>
+            <td class="obfuscated">${esc(value)}</td>
         `;
         tbody.appendChild(row);
     });
@@ -663,12 +717,40 @@ function renderCsharpSelectionTable(strMap, autoMap, typeMap) {
     table.appendChild(tbody);
     container.appendChild(table);
 
-    document.getElementById('csharpSelectAll').addEventListener('change', function () {
-        document.querySelectorAll('.csharp-mapping-checkbox').forEach(cb => cb.checked = this.checked);
-        updateSelectionCounter('csharpSelectionCounter', '.csharp-mapping-checkbox');
+    const checkboxSelector = `.${cfg.prefix}-mapping-checkbox`;
+    document.getElementById(`${cfg.prefix}SelectAll`).addEventListener('change', function () {
+        // U13: nur die sichtbaren (nicht ausgefilterten) Zeilen umschalten.
+        visibleCheckboxes(checkboxSelector).forEach(cb => cb.checked = this.checked);
+        updateSelectionCounter(`${cfg.prefix}SelectionCounter`, checkboxSelector);
     });
 
-    initMappingFilter('csharp');
+    initMappingFilter(cfg.prefix);
+}
+
+const CSHARP_TABLE = {
+    prefix: 'csharp',
+    container: 'csharpMappingSelectionContainer',
+    nameKey: 'original',
+    valueKey: 'placeholder',
+    valueHeader: 'Platzhalter'
+};
+
+const SQL_TABLE = {
+    prefix: 'sql',
+    container: 'sqlMappingSelectionContainer',
+    nameKey: 'element',
+    valueKey: 'obfuscated',
+    valueHeader: 'Verschleiert'
+};
+
+function renderCsharpSelectionTable(strMap, autoMap, typeMap) {
+    const rows = [];
+    // String-Replace-Einträge zuerst, danach die automatisch erkannten.
+    strMap.forEach((placeholder, original) =>
+        rows.push({ name: original, value: placeholder, type: 'String' }));
+    autoMap.forEach((placeholder, original) =>
+        rows.push({ name: original, value: placeholder, type: (typeMap && typeMap.get(original)) || '' }));
+    renderSelectionTable(CSHARP_TABLE, rows);
 }
 
 function obfuscateCode() {
@@ -678,7 +760,7 @@ function obfuscateCode() {
         return;
     }
 
-    if (originalCode !== lastAnalyzedCsharpCode) {
+    if (Core.fingerprint(originalCode) !== lastAnalyzedCsharpFp) {
         showStatus('Der Code wurde seit der Analyse geändert — bitte erneut analysieren.', 'error');
         return;
     }
@@ -713,7 +795,6 @@ function obfuscateCode() {
             csharpAutoTypeMap.set(original, cb.dataset.type || '');
         }
     });
-    reverseStringReplaceMapping = buildReverse(stringReplaceMapping);
     reverseCsharpAutoMapping = buildReverse(csharpAutoMapping);
 
     // Echte Ersetzungen zählen statt Mapping-Größe (K3).
@@ -771,11 +852,15 @@ function deobfuscateCode() {
 
     document.getElementById('finalCode').value = finalCode;
     document.getElementById('finalSection').style.display = 'block';
+    // R7: Die Warnung muss in BEIDE Zweige – bei null Treffern (die KI hat alle
+    // Platzhalter verändert) bleiben die meisten Reste stehen, und genau dann
+    // fiel sie früher ersatzlos weg.
     const leftoverWarning = leftoverPlaceholderWarning(finalCode);
+    const baseMessage = restoredCount === 0
+        ? 'Zurückverwandeln ohne Treffer: Kein bekannter Platzhalter in der KI-Antwort gefunden.'
+        : `Code erfolgreich zurückverwandelt! ${restoredCount} Ersetzung(en) vorgenommen.`;
     showStatus(
-        restoredCount === 0
-            ? 'Zurückverwandeln ohne Treffer: Kein bekannter Platzhalter in der KI-Antwort gefunden.'
-            : `Code erfolgreich zurückverwandelt! ${restoredCount} Ersetzung(en) vorgenommen.${leftoverWarning}`,
+        baseMessage + leftoverWarning,
         (restoredCount === 0 || leftoverWarning) ? 'error' : 'success'
     );
     saveState();
@@ -796,12 +881,11 @@ function resetCsharpFields() {
     if (csInput) csInput.value = '';
 
     stringReplaceMapping = new Map();
-    reverseStringReplaceMapping = new Map();
     replacementHistory = [];
     csharpAutoMapping = new Map();
     reverseCsharpAutoMapping = new Map();
     csharpAutoTypeMap = new Map();
-    lastAnalyzedCsharpCode = null;
+    lastAnalyzedCsharpFp = null;
     hasObfuscatedCsharp = false;
 
     ['csharpMappingSelectionSection', 'obfuscatedSection', 'csharpUsedMappingSection',
@@ -857,7 +941,7 @@ function analyzeSqlCode() {
         showSqlStatus('Keine SQL-Elemente oder String-Replace-Wörter gefunden.', 'error');
         document.getElementById('sqlMappingSelectionSection').style.display = 'none';
     }
-    lastAnalyzedSqlCode = originalCode;
+    lastAnalyzedSqlFp = Core.fingerprint(originalCode);
     hasObfuscatedSql = false;
     document.getElementById('sqlObfuscatedSection').style.display = 'none';
     document.getElementById('sqlAiResponseSection').style.display = 'none';
@@ -870,65 +954,21 @@ function analyzeSqlCode() {
 }
 
 function displaySqlMappingSelection(potentialMappings) {
-    const selectionDiv = document.getElementById('sqlMappingSelectionContainer');
-    selectionDiv.innerHTML = '';
-
-    const table = document.createElement('table');
-    table.className = 'mapping-selection-table';
-
-    const thead = document.createElement('thead');
-    const headerRow = document.createElement('tr');
-    headerRow.innerHTML = `
-        <th style="width: 50px;"><input type="checkbox" id="sqlSelectAll" aria-label="Alle auswählen" checked></th>
-        <th>Typ</th>
-        <th>Original</th>
-        <th>Verschleiert</th>
-    `;
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
-
-    const tbody = document.createElement('tbody');
-
+    const rows = [];
     // String-Replace-Wörter zuerst (aus sqlStringReplaceMapping)
-    sqlStringReplaceMapping.forEach((placeholder, word) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td><input type="checkbox" class="sql-mapping-checkbox" data-element="${Core.escapeHtml(word)}" data-type="String" data-obfuscated="${Core.escapeHtml(placeholder)}" aria-label="${Core.escapeHtml(word)} verschleiern" checked></td>
-            <td>String</td>
-            <td class="original">${Core.escapeHtml(word)}</td>
-            <td class="obfuscated">${Core.escapeHtml(placeholder)}</td>
-        `;
-        tbody.appendChild(row);
-    });
-
+    sqlStringReplaceMapping.forEach((placeholder, word) =>
+        rows.push({ name: word, value: placeholder, type: 'String' }));
     // SQL-Elemente alphabetisch sortiert
-    const sortedElements = Array.from(potentialMappings.keys()).sort((a, b) => a.localeCompare(b));
-    sortedElements.forEach(element => {
+    Array.from(potentialMappings.keys()).sort((a, b) => a.localeCompare(b)).forEach(element => {
         const mapping = potentialMappings.get(element);
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td><input type="checkbox" class="sql-mapping-checkbox" data-element="${Core.escapeHtml(element)}" data-type="${Core.escapeHtml(mapping.type)}" data-obfuscated="${Core.escapeHtml(mapping.obfuscated)}" aria-label="${Core.escapeHtml(element)} verschleiern" checked></td>
-            <td>${Core.escapeHtml(mapping.type)}</td>
-            <td class="original">${Core.escapeHtml(element)}</td>
-            <td class="obfuscated">${Core.escapeHtml(mapping.obfuscated)}</td>
-        `;
-        tbody.appendChild(row);
+        rows.push({ name: element, value: mapping.obfuscated, type: mapping.type });
     });
-
-    table.appendChild(tbody);
-    selectionDiv.appendChild(table);
-
-    document.getElementById('sqlSelectAll').addEventListener('change', function () {
-        document.querySelectorAll('.sql-mapping-checkbox').forEach(cb => cb.checked = this.checked);
-        updateSelectionCounter('sqlSelectionCounter', '.sql-mapping-checkbox');
-    });
+    renderSelectionTable(SQL_TABLE, rows);
 
     const sqlSelSec = document.getElementById('sqlMappingSelectionSection');
     sqlSelSec.style.display = 'block';
     sqlSelSec.classList.remove('collapsed');
     if (sqlSelSec.scrollIntoView) sqlSelSec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-    initMappingFilter('sql');
 }
 
 function obfuscateSqlCode() {
@@ -938,7 +978,7 @@ function obfuscateSqlCode() {
         return;
     }
 
-    if (originalCode !== lastAnalyzedSqlCode) {
+    if (Core.fingerprint(originalCode) !== lastAnalyzedSqlFp) {
         showSqlStatus('Der Code wurde seit der Analyse geändert — bitte erneut analysieren.', 'error');
         return;
     }
@@ -1028,11 +1068,13 @@ function deobfuscateSqlCode() {
 
     document.getElementById('sqlFinalCode').value = finalCode;
     document.getElementById('sqlFinalSection').style.display = 'block';
+    // R7: siehe deobfuscateCode() – Warnung gehört in beide Zweige.
     const leftoverWarning = leftoverPlaceholderWarning(finalCode);
+    const baseMessage = restoredCount === 0
+        ? 'Zurückverwandeln ohne Treffer: Kein bekannter Platzhalter in der KI-Antwort gefunden.'
+        : `SQL Code erfolgreich zurückverwandelt! ${restoredCount} Ersetzung(en) vorgenommen.`;
     showSqlStatus(
-        restoredCount === 0
-            ? 'Zurückverwandeln ohne Treffer: Kein bekannter Platzhalter in der KI-Antwort gefunden.'
-            : `SQL Code erfolgreich zurückverwandelt! ${restoredCount} Ersetzung(en) vorgenommen.${leftoverWarning}`,
+        baseMessage + leftoverWarning,
         (restoredCount === 0 || leftoverWarning) ? 'error' : 'success'
     );
     saveState();
@@ -1054,7 +1096,7 @@ function resetSqlFields() {
     reverseSqlMapping = new Map();
     sqlStringReplaceMapping = new Map();
     reverseSqlStringReplaceMapping = new Map();
-    lastAnalyzedSqlCode = null;
+    lastAnalyzedSqlFp = null;
     hasObfuscatedSql = false;
 
     ['sqlObfuscatedSection', 'sqlUsedMappingSection', 'sqlMappingSelectionSection',
@@ -1181,8 +1223,8 @@ window.ObfuscatorUI = {
         get csharpReplaceWords() { return csharpReplaceWords; },
         get sqlReplaceWords() { return sqlReplaceWords; },
         get replacementHistory() { return replacementHistory; },
-        get lastAnalyzedCsharpCode() { return lastAnalyzedCsharpCode; },
-        get lastAnalyzedSqlCode() { return lastAnalyzedSqlCode; },
+        get lastAnalyzedCsharpFp() { return lastAnalyzedCsharpFp; },
+        get lastAnalyzedSqlFp() { return lastAnalyzedSqlFp; },
         get hasObfuscatedCsharp() { return hasObfuscatedCsharp; },
         get hasObfuscatedSql() { return hasObfuscatedSql; }
     },
@@ -1192,14 +1234,14 @@ window.ObfuscatorUI = {
         mockSaveState(fn) { saveStateOverride = fn; },
         restoreSaveState() { saveStateOverride = null; },
         resetCsharp() {
-            stringReplaceMapping = new Map(); reverseStringReplaceMapping = new Map(); replacementHistory = [];
+            stringReplaceMapping = new Map(); replacementHistory = [];
             csharpAutoMapping = new Map(); reverseCsharpAutoMapping = new Map(); csharpAutoTypeMap = new Map();
-            csharpReplaceWords.length = 0; lastAnalyzedCsharpCode = null; hasObfuscatedCsharp = false;
+            csharpReplaceWords.length = 0; lastAnalyzedCsharpFp = null; hasObfuscatedCsharp = false;
         },
         resetSql() {
             sqlMapping = new Map(); reverseSqlMapping = new Map(); sqlStringReplaceMapping = new Map();
             reverseSqlStringReplaceMapping = new Map(); sqlReplaceWords.length = 0;
-            lastAnalyzedSqlCode = null; hasObfuscatedSql = false;
+            lastAnalyzedSqlFp = null; hasObfuscatedSql = false;
         }
     }
 };

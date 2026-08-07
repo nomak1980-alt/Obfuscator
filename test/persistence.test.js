@@ -9,6 +9,7 @@
  */
 const path = require('path');
 const { JSDOM } = require('jsdom');
+const Core = require('../obfuscator-core.js');
 
 let pass = 0, fail = 0;
 function it(name, cond, extra) {
@@ -93,6 +94,54 @@ JSDOM.fromFile(path.join(__dirname, '..', 'obfuscator.html'), {
         click(doc.querySelector('[data-action="deobfuscateCode"]'));
         it('nach Wiederherstellung: Zurückverwandeln liefert Original',
             doc.getElementById('finalCode').value.includes('CustomerService'));
+
+        // ── W10: Mengengerüst des gespeicherten Zustands ────────────────
+        const state = JSON.parse(win.localStorage.getItem('obfuscatorAppState_v1'));
+        it('W10: Volltext-Kopie lastAnalyzedCode wird nicht mehr gespeichert',
+            state.csharp.lastAnalyzedCode === undefined && typeof state.csharp.lastAnalyzedFp === 'string',
+            JSON.stringify(Object.keys(state.csharp)));
+        it('W10: csharpAutoTypeMap wird nicht mehr gespeichert',
+            state.csharp.csharpAutoTypeMap === undefined);
+        it('W10: Auswahl liegt im kompakten Tupel-Format vor',
+            Array.isArray(state.csharp.selection) && Array.isArray(state.csharp.selection[0]),
+            JSON.stringify(state.csharp.selection && state.csharp.selection[0]));
+        it('W10: csharpAutoTypeMap wird trotzdem aus der Auswahl abgeleitet',
+            UI._state.csharpAutoTypeMap.size > 0, 'typeMap leer nach loadState()');
+
+        // ── W10: Altformat (Objekt-Auswahl + Volltext) muss weiter laden ──
+        const altFormat = {
+            version: 1,
+            currentTab: 'csharp',
+            csharp: {
+                originalCode: 'public class AltKlasse { }',
+                obfuscatedCode: 'public class CS_CLASS_1 { }',
+                aiResponse: '', finalCode: '',
+                stringReplaceWords: [],
+                stringReplaceMapping: [],
+                replacementHistory: [],
+                csharpAutoMapping: [['AltKlasse', 'CS_CLASS_1']],
+                csharpAutoTypeMap: [['AltKlasse', 'Klasse']],
+                lastAnalyzedCode: 'public class AltKlasse { }',
+                hasObfuscated: true,
+                selection: [{ original: 'AltKlasse', placeholder: 'CS_CLASS_1', type: 'Klasse', checked: true }],
+                sections: { obfuscatedSection: { display: 'block', collapsed: false } }
+            }
+        };
+        win.localStorage.setItem('obfuscatorAppState_v1', JSON.stringify(altFormat));
+        UI.resetCsharpFields();
+        UI.loadState();
+        it('W10: Altformat – Auswahl im Objektformat wird geladen',
+            Array.from(doc.querySelectorAll('.csharp-mapping-checkbox'))
+                .some(cb => cb.dataset.original === 'AltKlasse' && cb.checked),
+            'Checkboxen: ' + doc.querySelectorAll('.csharp-mapping-checkbox').length);
+        it('W10: Altformat – Volltext wird in einen Fingerabdruck überführt',
+            UI._state.lastAnalyzedCsharpFp === Core.fingerprint('public class AltKlasse { }'),
+            String(UI._state.lastAnalyzedCsharpFp));
+        it('W10: Altformat – K1-Schutz greift danach unverändert', (() => {
+            doc.getElementById('originalCode').value = 'public class AltKlasse { } // geändert';
+            click(doc.querySelector('[data-action="obfuscateCode"]'));
+            return doc.getElementById('statusMessage').textContent.includes('erneut analysieren');
+        })(), doc.getElementById('statusMessage').textContent);
 
         console.log(`\n──────────────────────────────────────────`);
         console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);

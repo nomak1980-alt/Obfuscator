@@ -603,6 +603,33 @@ console.log('\n# R3 – zurückgebliebene Platzhalter nach dem Zurückverwandeln
         assert($('statusMessage').className.includes('error'), $('statusMessage').className));
 })();
 
+console.log('\n# R7 – Platzhalter-Warnung auch bei null Treffern');
+(() => {
+    // Schlimmster Fall: Die KI gibt ALLE Platzhalter verändert zurück. Dann gibt
+    // es null Treffer – genau dann blieb die Warnung früher ganz weg.
+    resetCsharp();
+    setVal('originalCode', 'public class CustomerService { public void GetOrder(int orderId) { } }');
+    UI.analyzeCode();
+    UI.obfuscateCode();
+    setVal('aiResponse', 'public class CS_CLASS_98 { public void CS_METHOD_97(int CS_PARAM_96) { } }');
+    UI.deobfuscateCode();
+    const txt = $('statusMessage').textContent;
+    it('C#: null Treffer meldet trotzdem die übrig gebliebenen Platzhalter', () =>
+        assert(/CS_CLASS_98/.test(txt) && /übrig geblieben/.test(txt), txt));
+    it('C#: Warnstatus ist error', () =>
+        assert($('statusMessage').className.includes('error'), $('statusMessage').className));
+
+    resetSql();
+    setVal('sqlOriginalCode', SQL_CODE);
+    UI.analyzeSqlCode();
+    UI.obfuscateSqlCode();
+    setVal('sqlAiResponse', 'SELECT * FROM SQL_TABLE_97 WHERE SQL_COL_96 = 1');
+    UI.deobfuscateSqlCode();
+    const sqlTxt = $('sqlStatusMessage').textContent;
+    it('SQL: null Treffer meldet trotzdem die übrig gebliebenen Platzhalter', () =>
+        assert(/SQL_TABLE_97/.test(sqlTxt) && /übrig geblieben/.test(sqlTxt), sqlTxt));
+})();
+
 console.log('\n# R4 – csharpAutoTypeMap wird beim Verschleiern mit der Auswahl synchronisiert');
 (() => {
     resetCsharpAuto();
@@ -654,10 +681,47 @@ console.log('\n# U8 – Filter/Zähler für die Auswahltabelle');
     it('Filter "Order" blendet CustomerService aus, GetOrder/orderId bleiben', () =>
         assert(!visible.includes('CustomerService') && visible.includes('GetOrder') && visible.includes('orderId'), visible.join(',')));
 
+    // checkbox[0] ist CustomerService – durch den Filter gerade ausgeblendet.
     doc.querySelectorAll('.csharp-mapping-checkbox')[0].checked = false;
     UI.updateSelectionCounter('csharpSelectionCounter', '.csharp-mapping-checkbox');
-    it('Zähler aktualisiert sich nach Abwahl einer Checkbox', () =>
+    it('Zähler weist bei aktivem Filter sichtbare und Gesamtmenge getrennt aus', () =>
+        eq($('csharpSelectionCounter').textContent, '2 von 2 sichtbar ausgewählt (2 von 3 gesamt)'));
+
+    setVal('csharpFilterInput', '');
+    UI.applyMappingFilter('csharpFilterInput', 'csharpFilterType', '.csharp-mapping-checkbox');
+    it('Zähler kehrt ohne Filter zur einfachen Form zurück', () =>
         eq($('csharpSelectionCounter').textContent, '2 von 3 ausgewählt'));
+})();
+
+console.log('\n# U13 – "Alle auswählen" wirkt nur auf sichtbare Zeilen');
+(() => {
+    resetCsharp();
+    setVal('originalCode', 'public class CustomerService { public void GetOrder(int orderId) { } }');
+    UI.analyzeCode();
+    setVal('csharpFilterInput', 'Order');
+    UI.applyMappingFilter('csharpFilterInput', 'csharpFilterType', '.csharp-mapping-checkbox');
+
+    const boxOf = name => Array.from(doc.querySelectorAll('.csharp-mapping-checkbox'))
+        .find(cb => cb.dataset.original === name);
+
+    // "Alle abwählen" bei aktivem Filter
+    const selectAll = $('csharpSelectAll');
+    selectAll.checked = false;
+    selectAll.dispatchEvent(new win.Event('change', { bubbles: true }));
+
+    it('ausgefilterte Zeile bleibt ausgewählt', () =>
+        assert(boxOf('CustomerService').checked, 'CustomerService wurde unsichtbar abgewählt'));
+    it('sichtbare Zeilen sind abgewählt', () =>
+        assert(!boxOf('GetOrder').checked && !boxOf('orderId').checked, 'sichtbare Zeilen nicht abgewählt'));
+
+    // Verschleiern erfasst die ausgefilterte, weiterhin ausgewählte Zeile
+    UI.obfuscateCode();
+    it('ausgefilterte, ausgewählte Zeile wird trotzdem verschleiert', () =>
+        assert(!$('obfuscatedCode').value.includes('CustomerService'), $('obfuscatedCode').value));
+
+    // Kopf-Checkbox spiegelt nur den sichtbaren Teil
+    setVal('csharpFilterInput', '');
+    UI.applyMappingFilter('csharpFilterInput', 'csharpFilterType', '.csharp-mapping-checkbox');
 })();
 
 console.log('\n# T2 – isValidImportState (Format-Validierung)');
