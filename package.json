@@ -5,7 +5,7 @@
   "main": "obfuscator-core.js",
   "scripts": {
     "test": "node test/core.test.js && node test/integration.test.js && node test/persistence.test.js && node test/smoke.test.js && node test/layout.test.js",
-    "lint": "eslint obfuscator.js obfuscator-core.js test",
+    "lint": "eslint obfuscator.js obfuscator-core.js test --max-warnings 0",
     "coverage": "c8 --reporter=text --reporter=html --include=obfuscator-core.js --include=obfuscator.js npm test"
   },
   "repository": {

@@ -28,7 +28,10 @@ module.exports = [
             }
         },
         rules: {
-            'no-unused-vars': 'warn'
+            // T10: caughtErrors: 'none' entfernt das Rauschen der bewusst
+            // ungenutzten catch-Parameter. Erst dadurch bleiben nur inhaltliche
+            // Treffer stehen – und erst dann ist --max-warnings 0 sinnvoll.
+            'no-unused-vars': ['warn', { caughtErrors: 'none' }]
         }
     },
     {
@@ -54,10 +57,13 @@ module.exports = [
             }
         },
         rules: {
-            'no-unused-vars': 'warn'
+            // T10: caughtErrors: 'none' entfernt das Rauschen der bewusst
+            // ungenutzten catch-Parameter. Erst dadurch bleiben nur inhaltliche
+            // Treffer stehen – und erst dann ist --max-warnings 0 sinnvoll.
+            'no-unused-vars': ['warn', { caughtErrors: 'none' }]
         }
     },
     {
-        ignores: ['node_modules/', 'publish/', 'tests.html']
+        ignores: ['node_modules/', 'publish/', 'coverage/']
     }
 ];
