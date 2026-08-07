@@ -461,6 +461,17 @@ it('erkennt SQL_TABLE_ und STR_PLACEHOLDER_ gemeinsam', () => {
 it('liefert leeres Array bei vollstaendig zurueckverwandeltem Code', () => {
     eq(C.findLeftoverPlaceholders('public class CustomerService { }').length, 0);
 });
+it('SQL_STR_PLACEHOLDER_ wird nicht doppelt als STR_PLACEHOLDER_ mitgezaehlt', () => {
+    // STR_PLACEHOLDER_ ist ein Suffix von SQL_STR_PLACEHOLDER_ – ohne Wortgrenze
+    // meldete ein einzelner Platzhalter faelschlich zwei Treffer.
+    const hits = C.findLeftoverPlaceholders('SELECT SQL_STR_PLACEHOLDER_1 FROM x');
+    eq(hits.length, 1, 'Trefferanzahl');
+    eq(hits[0], 'SQL_STR_PLACEHOLDER_1', 'Treffername');
+});
+it('erkennt Platzhalter mit Kollisions-Salt', () => {
+    const hits = C.findLeftoverPlaceholders('var x = STR_PLACEHOLDER_ab12_4;');
+    assert(hits.includes('STR_PLACEHOLDER_ab12_4'), JSON.stringify(hits));
+});
 
 console.log(`\n──────────────────────────────────────────`);
 console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);

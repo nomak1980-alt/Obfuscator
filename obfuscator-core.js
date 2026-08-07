@@ -613,7 +613,10 @@
         const text = String(code);
         const found = new Set();
         ALL_PLACEHOLDER_PREFIXES.forEach(prefix => {
-            const rx = new RegExp(escapeRegex(prefix) + '[A-Za-z0-9_]*\\d+', 'g');
+            // Führendes \b ist zwingend: STR_PLACEHOLDER_ ist ein Suffix von
+            // SQL_STR_PLACEHOLDER_, sonst würde ein einzelnes
+            // SQL_STR_PLACEHOLDER_1 doppelt (und mit falschem Namen) gemeldet.
+            const rx = new RegExp('\\b' + escapeRegex(prefix) + '[A-Za-z0-9_]*\\d+', 'g');
             let m;
             while ((m = rx.exec(text)) !== null) found.add(m[0]);
         });
