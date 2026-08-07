@@ -30,6 +30,30 @@
         return String(string).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
+    // K5: C# und T-SQL erlauben Unicode-Buchstaben in Bezeichnern ("Kundenprüfung",
+    // "Gebäude"). Mit ASCII-Klassen ([a-zA-Z_]/\w/\b) wurden solche Namen weder
+    // erkannt (Klartext-Leak) noch als Ganzes ersetzt – "Kundenprüfung" wurde zu
+    // "CS_CLASS_1üfung" zerhackt.
+    // Diese vier Konstanten sind die EINZIGE Definition davon, was ein Bezeichner-
+    // Zeichen ist; alle Analyse- und Ersetzungs-Regexe leiten sich davon ab, damit
+    // eine künftige Korrektur nicht an drei Stellen getrennt erfolgen muss.
+    const ID_CHAR = '[\\p{L}\\p{N}_]';
+    const IDENT = '[\\p{L}_]' + ID_CHAR + '*';
+    // Ersetzt ein führendes \b vor einem Bezeichner: \b ist auch im u-Modus
+    // ASCII-basiert und würde vor "über" fälschlich eine Wortgrenze sehen.
+    const NOT_ID_BEFORE = '(?<!' + ID_CHAR + ')';
+    const NOT_ID_AFTER = '(?!' + ID_CHAR + ')';
+    const IS_ID_CHAR = new RegExp(ID_CHAR, 'u');
+    // Alles oberhalb von ASCII. Bewusst als Positiv-Bereich formuliert, damit
+    // keine Steuerzeichen im Muster stehen (no-control-regex).
+    const NON_ASCII = new RegExp('[\u0080-\uFFFF]');
+
+    // Alle abgeleiteten RegExp brauchen das u-Flag, sonst sind \p{…} bloß
+    // literale Zeichen.
+    function withUnicode(flags) {
+        return String(flags || '').includes('u') ? flags : (flags || '') + 'u';
+    }
+
     function escapeHtml(str) {
         return String(str)
             .replace(/&/g, '&amp;')
@@ -46,6 +70,18 @@
             h = (Math.imul(h, 31) + str.charCodeAt(i)) | 0;
         }
         return (h >>> 0).toString(36);
+    }
+
+    /**
+     * W10: Kennung eines Code-Stands für den K1-Vergleich ("wurde der Code seit
+     * der Analyse geändert?"). Früher wurde dafür der komplette Quelltext ein
+     * zweites Mal im localStorage abgelegt. Länge UND Hash zusammen machen eine
+     * Kollision – die K1 aushebeln würde – praktisch ausgeschlossen, kosten aber
+     * nur ein paar Byte statt einer Volltext-Kopie.
+     */
+    function fingerprint(code) {
+        const text = String(code);
+        return text.length + ':' + hashCode(text);
     }
 
     /**
@@ -76,21 +112,39 @@
      * Bezeichner, damit die Ersetzung nichts zerhackt.
      */
     function containingWordRegex(word, flags) {
-        return new RegExp('\\w*' + escapeRegex(word) + '\\w*', flags);
+        return new RegExp(ID_CHAR + '*' + escapeRegex(word) + ID_CHAR + '*', withUnicode(flags));
     }
 
     /**
      * Baut eine RegExp mit kontextsensitiven Wortgrenzen:
-     *  - führendes \b nur, wenn das Wort mit einem Wortzeichen beginnt
-     *  - abschließendes \b nur, wenn das Wort mit einem Wortzeichen endet
+     *  - führende Grenze nur, wenn das Wort mit einem Bezeichner-Zeichen beginnt
+     *  - abschließende Grenze nur, wenn das Wort mit einem solchen endet
      * So werden Bezeichner als Ganzwort ersetzt, ohne dass Wörter mit
      * Sonderzeichen an den Rändern (z.B. "@id") nie matchen.
+     * K5: Lookaround statt \b – \b kennt nur ASCII und würde "Größe" mitten im
+     * Wort als Grenze behandeln.
      */
-    function wordRegex(word, flags) {
+    function wordRegex(word, flags, asciiFast) {
         const esc = escapeRegex(word);
-        const left = /^\w/.test(word) ? '\\b' : '';
-        const right = /\w$/.test(word) ? '\\b' : '';
-        return new RegExp(left + esc + right, flags);
+        const str = String(word);
+        const hasLeft = IS_ID_CHAR.test(str.charAt(0));
+        const hasRight = IS_ID_CHAR.test(str.charAt(str.length - 1));
+        // Solange weder Wort noch Text ein Zeichen jenseits von ASCII enthalten,
+        // ist \b exakt gleichbedeutend mit der Unicode-Grenze – aber deutlich
+        // billiger zu kompilieren (bei einigen tausend Bezeichnern macht das
+        // mehrere hundert Millisekunden aus). Der Aufrufer entscheidet über
+        // asciiFast; ohne die Zusicherung wird immer die korrekte Form gebaut.
+        if (asciiFast && !NON_ASCII.test(str)) {
+            return new RegExp((hasLeft ? '\\b' : '') + esc + (hasRight ? '\\b' : ''), flags);
+        }
+        return new RegExp((hasLeft ? NOT_ID_BEFORE : '') + esc + (hasRight ? NOT_ID_AFTER : ''), withUnicode(flags));
+    }
+
+    // Ein Text ohne Nicht-ASCII-Zeichen kann keine Unicode-Wortgrenze benötigen.
+    // Ersetzungen fügen nur ASCII-Platzhalter ein, die Eigenschaft bleibt also
+    // über den gesamten Durchlauf erhalten.
+    function isPureAscii(text) {
+        return !NON_ASCII.test(String(text));
     }
 
     /**
@@ -105,10 +159,11 @@
      */
     function applyReplacements(code, entries, onMatch) {
         let out = code;
+        const asciiFast = isPureAscii(code);
         const sorted = entries.slice().sort((a, b) => b.from.length - a.from.length);
         sorted.forEach(({ from, to }) => {
             if (!from) return;
-            out = out.replace(wordRegex(from, 'g'), () => {
+            out = out.replace(wordRegex(from, 'g', asciiFast), () => {
                 if (onMatch) onMatch(from, to);
                 return to;
             });
@@ -125,10 +180,14 @@
      */
     function reverseReplacements(code, entries, onMatch) {
         let out = code;
+        // Achtung: Hier wachsen Nicht-ASCII-Zeichen im Text (die Originale werden
+        // wieder eingesetzt). Die Zusicherung muss deshalb auch die Originale
+        // umfassen, nicht nur den Eingangstext.
+        const asciiFast = isPureAscii(code) && entries.every(e => isPureAscii(e.original));
         const sorted = entries.slice().sort((a, b) => b.placeholder.length - a.placeholder.length);
         sorted.forEach(({ placeholder, original }) => {
             if (!placeholder) return;
-            out = out.replace(wordRegex(placeholder, 'g'), () => {
+            out = out.replace(wordRegex(placeholder, 'g', asciiFast), () => {
                 if (onMatch) onMatch(placeholder, original);
                 return original;
             });
@@ -141,16 +200,39 @@
     // Diese Heuristik prüft das VERSCHLEIERTE Ergebnis auf typische
     // Geheimnismuster, die trotzdem im Klartext stehen geblieben sein könnten,
     // und liefert die betroffenen Zeilennummern (1-basiert, dedupliziert).
-    const SECRET_HINT_PATTERNS = [
-        /password\s*=/i, /pwd\s*=/i, /\bserver\s*=/i, /data\s+source\s*=/i,
-        /api[_-]?key/i, /bearer\s+\S/i, /accountkey\s*=/i, /secret\s*=/i, /connectionstring/i
+    // W11: Ein blosses "=" traf auch ==, !=, >= und <=, sodass `if (secret == null)`
+    // Alarm auslöste. Und ein Bezeichner, der ein Geheimnis-Wort nur enthält
+    // (apiKeyName, connectionStringBuilder), ist selbst keines.
+    // Zwei Bedingungen müssen daher zusammenkommen:
+    //  1. Das Geheimnis-Wort steht DIREKT vor einer Zuweisung (kein Vergleich).
+    //  2. In derselben Zeile steht ein String-Literal – ein Geheimnis ist immer
+    //     ein Wert, nie eine Zahl (`int server = 5;` ist keiner).
+    // Fehlalarme sind hier nicht kosmetisch: Sie setzen den Gesamtstatus auf
+    // Fehler und würden den Nutzer daran gewöhnen, die Warnung wegzuklicken.
+    const SECRET_ASSIGN_PATTERNS = [
+        /password\s*=(?![=>])/i,
+        /\bpwd\s*=(?![=>])/i,
+        /\bserver\s*=(?![=>])/i,
+        /data\s+source\s*=(?![=>])/i,
+        /accountkey\s*=(?![=>])/i,
+        /\bsecret\s*=(?![=>])/i,
+        /api[_-]?key\s*=(?![=>])/i,
+        /connectionstring\s*=(?![=>])/i
     ];
+    // Unabhängig von einer Zuweisung: ein Bearer-Token ist immer verdächtig.
+    const SECRET_STANDALONE_PATTERNS = [/bearer\s+\S/i];
+    const HAS_STRING_LITERAL = /["']/;
+
+    function isSecretLine(line) {
+        if (SECRET_STANDALONE_PATTERNS.some(rx => rx.test(line))) return true;
+        return HAS_STRING_LITERAL.test(line) && SECRET_ASSIGN_PATTERNS.some(rx => rx.test(line));
+    }
 
     function findSecretHints(code) {
         const lines = String(code).split('\n');
         const hitLines = [];
         lines.forEach((line, idx) => {
-            if (SECRET_HINT_PATTERNS.some(rx => rx.test(line))) hitLines.push(idx + 1);
+            if (isSecretLine(line)) hitLines.push(idx + 1);
         });
         return hitLines;
     }
@@ -271,14 +353,15 @@
         const counters = { table: 1, column: 1, procedure: 1, function: 1, object: 1, element: 1 };
         const suffix = uniqueSuffix(code, Object.values(SQL_PREFIXES));
 
-        const ID = '\\[[^\\]]+\\]|[a-zA-Z_][a-zA-Z0-9_]*';
+        const ID = '\\[[^\\]]+\\]|' + IDENT;
         const REF = `(?:${ID})(?:\\.(?:${ID})){0,2}`;
+        const IS_IDENT = new RegExp('^' + IDENT + '$', 'u');
 
         const stripBr = s => s.replace(/^\[|\]$/g, '').trim();
         const isSystemSchema = n => /^(dbo|sys|INFORMATION_SCHEMA|guest|master|model|msdb|tempdb)$/i.test(n);
         const isValidId = n => !!n
             && n.length >= 2
-            && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(n)
+            && IS_IDENT.test(n)
             && !isSqlReservedWord(n)
             && !n.startsWith(SQL_STR_PREFIX);
 
@@ -319,47 +402,47 @@
                 p = p.replace(/\s+(?:ASC|DESC)\b.*$/i, '').trim();
                 const eq = p.indexOf('=');
                 if (eq >= 0) p = p.substring(0, eq).trim();
-                const m = p.match(new RegExp(`^(${REF})`, 'i'));
+                const m = p.match(new RegExp(`^(${REF})`, 'iu'));
                 if (m) pushRef(m[1], 'column', true);
             });
         }
 
         const tablePatterns = [
-            new RegExp(`\\bFROM\\s+(${REF})`, 'gi'),
-            new RegExp(`\\b(?:(?:INNER|CROSS)\\s+|(?:LEFT|RIGHT|FULL)(?:\\s+OUTER)?\\s+)?JOIN\\s+(${REF})`, 'gi'),
-            new RegExp(`\\bUPDATE\\s+(${REF})`, 'gi'),
-            new RegExp(`\\bINSERT\\s+(?:INTO\\s+)?(${REF})`, 'gi'),
-            new RegExp(`\\bDELETE\\s+(?:FROM\\s+)?(${REF})`, 'gi'),
-            new RegExp(`\\bMERGE\\s+(?:INTO\\s+)?(${REF})`, 'gi'),
-            new RegExp(`\\bUSING\\s+(${REF})`, 'gi'),
-            new RegExp(`\\bINTO\\s+(${REF})`, 'gi'),
-            new RegExp(`\\bCREATE\\s+TABLE\\s+(${REF})`, 'gi'),
-            new RegExp(`\\bALTER\\s+TABLE\\s+(${REF})`, 'gi'),
-            new RegExp(`\\bDROP\\s+TABLE\\s+(${REF})`, 'gi'),
-            new RegExp(`\\bTRUNCATE\\s+TABLE\\s+(${REF})`, 'gi'),
-            new RegExp(`\\bCREATE\\s+(?:UNIQUE\\s+)?(?:CLUSTERED\\s+|NONCLUSTERED\\s+)?INDEX\\s+(?:${ID})\\s+ON\\s+(${REF})`, 'gi'),
+            new RegExp(`\\bFROM\\s+(${REF})`, 'giu'),
+            new RegExp(`\\b(?:(?:INNER|CROSS)\\s+|(?:LEFT|RIGHT|FULL)(?:\\s+OUTER)?\\s+)?JOIN\\s+(${REF})`, 'giu'),
+            new RegExp(`\\bUPDATE\\s+(${REF})`, 'giu'),
+            new RegExp(`\\bINSERT\\s+(?:INTO\\s+)?(${REF})`, 'giu'),
+            new RegExp(`\\bDELETE\\s+(?:FROM\\s+)?(${REF})`, 'giu'),
+            new RegExp(`\\bMERGE\\s+(?:INTO\\s+)?(${REF})`, 'giu'),
+            new RegExp(`\\bUSING\\s+(${REF})`, 'giu'),
+            new RegExp(`\\bINTO\\s+(${REF})`, 'giu'),
+            new RegExp(`\\bCREATE\\s+TABLE\\s+(${REF})`, 'giu'),
+            new RegExp(`\\bALTER\\s+TABLE\\s+(${REF})`, 'giu'),
+            new RegExp(`\\bDROP\\s+TABLE\\s+(${REF})`, 'giu'),
+            new RegExp(`\\bTRUNCATE\\s+TABLE\\s+(${REF})`, 'giu'),
+            new RegExp(`\\bCREATE\\s+(?:UNIQUE\\s+)?(?:CLUSTERED\\s+|NONCLUSTERED\\s+)?INDEX\\s+(?:${ID})\\s+ON\\s+(${REF})`, 'giu'),
         ];
         tablePatterns.forEach(rx => {
             let m;
             while ((m = rx.exec(code)) !== null) pushRef(m[1], 'table');
         });
 
-        const cteRegex = new RegExp(`\\bWITH\\s+(${ID})\\s+AS\\s*\\(`, 'gi');
+        const cteRegex = new RegExp(`\\bWITH\\s+(${ID})\\s+AS\\s*\\(`, 'giu');
         let cte;
         while ((cte = cteRegex.exec(code)) !== null) {
             const n = stripBr(cte[1]);
             if (isValidId(n)) foundElements.set(n, 'object');
         }
 
-        const objRegex = new RegExp(`\\bCREATE\\s+(?:OR\\s+ALTER\\s+)?(?:PROCEDURE|PROC|FUNCTION|VIEW|TRIGGER)\\s+(${REF})`, 'gi');
+        const objRegex = new RegExp(`\\bCREATE\\s+(?:OR\\s+ALTER\\s+)?(?:PROCEDURE|PROC|FUNCTION|VIEW|TRIGGER)\\s+(${REF})`, 'giu');
         let obj;
         while ((obj = objRegex.exec(code)) !== null) pushRef(obj[1], 'object');
 
-        const procRegex = new RegExp(`\\bEXEC(?:UTE)?\\s+(${REF})`, 'gi');
+        const procRegex = new RegExp(`\\bEXEC(?:UTE)?\\s+(${REF})`, 'giu');
         let proc;
         while ((proc = procRegex.exec(code)) !== null) pushRef(proc[1], 'procedure');
 
-        const funcRegex = new RegExp(`\\bFROM\\s+(${REF})\\s*\\(`, 'gi');
+        const funcRegex = new RegExp(`\\bFROM\\s+(${REF})\\s*\\(`, 'giu');
         let fn;
         while ((fn = funcRegex.exec(code)) !== null) pushRef(fn[1], 'function');
 
@@ -367,11 +450,11 @@
         let sel;
         while ((sel = selectRegex.exec(code)) !== null) pushColumnList(sel[1]);
 
-        const insertColsRegex = new RegExp(`\\bINSERT\\s+(?:INTO\\s+)?${REF}\\s*\\(([^)]+)\\)`, 'gi');
+        const insertColsRegex = new RegExp(`\\bINSERT\\s+(?:INTO\\s+)?${REF}\\s*\\(([^)]+)\\)`, 'giu');
         let ic;
         while ((ic = insertColsRegex.exec(code)) !== null) pushColumnList(ic[1]);
 
-        const ixColsRegex = new RegExp(`\\bCREATE\\s+(?:UNIQUE\\s+)?(?:CLUSTERED\\s+|NONCLUSTERED\\s+)?INDEX\\s+(?:${ID})\\s+ON\\s+${REF}\\s*\\(([^)]+)\\)`, 'gi');
+        const ixColsRegex = new RegExp(`\\bCREATE\\s+(?:UNIQUE\\s+)?(?:CLUSTERED\\s+|NONCLUSTERED\\s+)?INDEX\\s+(?:${ID})\\s+ON\\s+${REF}\\s*\\(([^)]+)\\)`, 'giu');
         let ix;
         while ((ix = ixColsRegex.exec(code)) !== null) pushColumnList(ix[1]);
 
@@ -387,11 +470,11 @@
         let gb;
         while ((gb = groupRegex.exec(code)) !== null) pushColumnList(gb[1]);
 
-        const condOpRegex = new RegExp(`\\b(?:WHERE|HAVING|AND|OR)\\s+\\(*\\s*(${REF})\\s*(?:[=<>!]|LIKE\\b|IN\\b|BETWEEN\\b|IS\\b)`, 'gi');
+        const condOpRegex = new RegExp(`\\b(?:WHERE|HAVING|AND|OR)\\s+\\(*\\s*(${REF})\\s*(?:[=<>!]|LIKE\\b|IN\\b|BETWEEN\\b|IS\\b)`, 'giu');
         let co;
         while ((co = condOpRegex.exec(code)) !== null) pushRef(co[1], 'column', true);
 
-        const onRegex = new RegExp(`\\bON\\s+(${REF})\\s*=\\s*(${REF})`, 'gi');
+        const onRegex = new RegExp(`\\bON\\s+(${REF})\\s*=\\s*(${REF})`, 'giu');
         let on;
         while ((on = onRegex.exec(code)) !== null) {
             pushRef(on[1], 'column', true);
@@ -498,11 +581,15 @@
         const counters = { class: 1, iface: 1, enum: 1, namespace: 1, method: 1, prop: 1, field: 1, param: 1, local: 1 };
         const found = new Map(); // element → typeKey (first-seen wins)
 
-        const ID = '[a-zA-Z_][a-zA-Z0-9_]*';
+        // K5: Bezeichner-Zeichenklasse zentral aus dem Modulkopf, damit C#-,
+        // SQL- und String-Replace-Pfad nicht auseinanderlaufen.
+        const ID = IDENT;
+        const IS_IDENT_CS = new RegExp('^' + IDENT + '$', 'u');
+        const SPLIT_NON_ID = new RegExp('[^\\p{L}\\p{N}_]+', 'u');
 
         function push(name, typeKey) {
             if (!name || found.has(name) || isCSharpKeyword(name)) return;
-            if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) return;
+            if (!IS_IDENT_CS.test(name)) return;
             found.set(name, typeKey);
         }
 
@@ -512,24 +599,25 @@
         function pushType(base, generics) {
             push(base, 'class');
             if (generics) {
-                generics.split(/[^a-zA-Z0-9_]+/).forEach(function (g) { push(g, 'class'); });
+                generics.split(SPLIT_NON_ID).forEach(function (g) { push(g, 'class'); });
             }
         }
 
         let m;
 
         // ── Typdeklarationen (sehr zuverlässig) ────────────────────────────
-        const classRx = new RegExp('\\bclass\\s+(' + ID + ')', 'g');
+        // NOT_ID_BEFORE statt \b: \b ist auch im u-Modus ASCII-basiert.
+        const classRx = new RegExp(NOT_ID_BEFORE + 'class\\s+(' + ID + ')', 'gu');
         while ((m = classRx.exec(text)) !== null) push(m[1], 'class');
 
-        const ifaceRx = new RegExp('\\binterface\\s+(' + ID + ')', 'g');
+        const ifaceRx = new RegExp(NOT_ID_BEFORE + 'interface\\s+(' + ID + ')', 'gu');
         while ((m = ifaceRx.exec(text)) !== null) push(m[1], 'iface');
 
-        const enumRx = new RegExp('\\benum\\s+(' + ID + ')', 'g');
+        const enumRx = new RegExp(NOT_ID_BEFORE + 'enum\\s+(' + ID + ')', 'gu');
         while ((m = enumRx.exec(text)) !== null) push(m[1], 'enum');
 
         // ── Namespace (mehrteilig, auf Punkte aufteilen) ────────────────────
-        const nsRx = new RegExp('\\bnamespace\\s+(' + ID + '(?:\\.' + ID + ')*)', 'g');
+        const nsRx = new RegExp(NOT_ID_BEFORE + 'namespace\\s+(' + ID + '(?:\\.' + ID + ')*)', 'gu');
         while ((m = nsRx.exec(text)) !== null) {
             m[1].split('.').forEach(function (part) { push(part, 'namespace'); });
         }
@@ -537,55 +625,55 @@
         // ── Objekt-Erzeugung: new Foo(...) / new Foo{...} / new Foo[...] ────
         // Muss vor den Member-Regexen laufen, sonst würde "new" als Modifier
         // den Typnamen fälschlich als Methode klassifizieren (first-seen wins).
-        const newRx = new RegExp('\\bnew\\s+(' + ID + ')\\s*(?:<([^>]*)>)?\\s*[({\\[]', 'g');
+        const newRx = new RegExp(NOT_ID_BEFORE + 'new\\s+(' + ID + ')\\s*(?:<([^>]*)>)?\\s*[({\\[]', 'gu');
         while ((m = newRx.exec(text)) !== null) pushType(m[1], m[2]);
 
         // ── Member-Deklarationen (mit Modifier als Anker) ───────────────────
         // Modifier-Präfix stellt sicher, dass wir Deklarationen treffen, nicht Aufrufe.
         const MOD = '(?:public|private|protected|internal|static|async|virtual|override' +
                     '|abstract|sealed|new|extern|partial|readonly|const|volatile)';
-        const MODS = '\\b' + MOD + '(?:\\s+' + MOD + ')*\\s+';
+        const MODS = NOT_ID_BEFORE + MOD + '(?:\\s+' + MOD + ')*\\s+';
         // Typtoken mit Captures (Basis + generische Argumente), Array-Suffix, Nullable-Marker
         const TYP = '(' + ID + ')(?:<([^>]*)>)?(?:\\[\\])*\\??\\s+';
 
         // Methoden: MODS [ReturnType] MethodenName(
         // TYP ist optional, damit Konstruktoren (ohne expliziten Rückgabetyp) ebenfalls erfasst werden.
-        const methodRx = new RegExp(MODS + '(?:' + TYP + ')?(' + ID + ')\\s*(?:<[^>]*>\\s*)?\\(', 'g');
+        const methodRx = new RegExp(MODS + '(?:' + TYP + ')?(' + ID + ')\\s*(?:<[^>]*>\\s*)?\\(', 'gu');
         while ((m = methodRx.exec(text)) !== null) { push(m[3], 'method'); pushType(m[1], m[2]); }
 
         // Properties: MODS TYP Name {
-        const propRx = new RegExp(MODS + TYP + '(' + ID + ')\\s*\\{', 'g');
+        const propRx = new RegExp(MODS + TYP + '(' + ID + ')\\s*\\{', 'gu');
         while ((m = propRx.exec(text)) !== null) { push(m[3], 'prop'); pushType(m[1], m[2]); }
 
         // Felder: MODS [readonly|const] TYP Name ; oder =
-        const fieldRx = new RegExp(MODS + '(?:readonly\\s+|const\\s+)?' + TYP + '(' + ID + ')\\s*(?:;|=)', 'g');
+        const fieldRx = new RegExp(MODS + '(?:readonly\\s+|const\\s+)?' + TYP + '(' + ID + ')\\s*(?:;|=)', 'gu');
         while ((m = fieldRx.exec(text)) !== null) { push(m[3], 'field'); pushType(m[1], m[2]); }
 
         // ── foreach: Typ + Laufvariable ─────────────────────────────────────
-        const foreachRx = new RegExp('\\bforeach\\s*\\(\\s*' + TYP + '(' + ID + ')\\s+in\\b', 'g');
+        const foreachRx = new RegExp(NOT_ID_BEFORE + 'foreach\\s*\\(\\s*' + TYP + '(' + ID + ')\\s+in' + NOT_ID_AFTER, 'gu');
         while ((m = foreachRx.exec(text)) !== null) { push(m[3], 'local'); pushType(m[1], m[2]); }
 
         // ── Parameter ───────────────────────────────────────────────────────
         // Alle Positionen: (Type name), (Type name, ...), ..., Type name), ..., Type name,
-        const paramRx = new RegExp('[,(]\\s*(?:(?:ref|out|in|params)\\s+)?' + TYP + '(' + ID + ')\\s*(?=[,)=])', 'g');
+        const paramRx = new RegExp('[,(]\\s*(?:(?:ref|out|in|params)\\s+)?' + TYP + '(' + ID + ')\\s*(?=[,)=])', 'gu');
         while ((m = paramRx.exec(text)) !== null) { push(m[3], 'param'); pushType(m[1], m[2]); }
 
         // Benannte Argumente: Foo(name: wert) – Parametername an der Aufrufstelle.
         // (?!:) schließt den Scope-Operator "::" aus; der Ternär-Operator matcht
         // nicht, weil direkt nach dem Bezeichner ein ":" stehen muss.
-        const namedArgRx = new RegExp('[,(]\\s*(' + ID + ')\\s*:(?!:)', 'g');
+        const namedArgRx = new RegExp('[,(]\\s*(' + ID + ')\\s*:(?!:)', 'gu');
         while ((m = namedArgRx.exec(text)) !== null) push(m[1], 'param');
 
         // Lambda-Parameter ohne Klammern: x => …  ("_" = Discard, nicht ersetzen).
         // Läuft nach den Deklarations-Regexen, damit expression-bodied Member
         // (first-seen) nicht als Parameter umklassifiziert werden.
-        const lambdaRx = new RegExp('\\b(' + ID + ')\\s*=>', 'g');
+        const lambdaRx = new RegExp(NOT_ID_BEFORE + '(' + ID + ')\\s*=>', 'gu');
         while ((m = lambdaRx.exec(text)) !== null) { if (m[1] !== '_') push(m[1], 'param'); }
 
         // ── Lokale Variablen: Typ name = … (var-Deklarationen: Typ "var"
         // fällt im Keyword-Filter weg, der Name wird trotzdem erkannt).
         // (?![=>]) schließt == und => aus.
-        const localRx = new RegExp('\\b' + TYP + '(' + ID + ')\\s*=(?![=>])', 'g');
+        const localRx = new RegExp(NOT_ID_BEFORE + TYP + '(' + ID + ')\\s*=(?![=>])', 'gu');
         while ((m = localRx.exec(text)) !== null) { push(m[3], 'local'); pushType(m[1], m[2]); }
 
         // ── Ergebnis aufbauen ───────────────────────────────────────────────
@@ -616,7 +704,7 @@
             // Führendes \b ist zwingend: STR_PLACEHOLDER_ ist ein Suffix von
             // SQL_STR_PLACEHOLDER_, sonst würde ein einzelnes
             // SQL_STR_PLACEHOLDER_1 doppelt (und mit falschem Namen) gemeldet.
-            const rx = new RegExp('\\b' + escapeRegex(prefix) + '[A-Za-z0-9_]*\\d+', 'g');
+            const rx = new RegExp(NOT_ID_BEFORE + escapeRegex(prefix) + '[A-Za-z0-9_]*\\d+' + NOT_ID_AFTER, 'gu');
             let m;
             while ((m = rx.exec(text)) !== null) found.add(m[0]);
         });
@@ -626,6 +714,7 @@
     return {
         escapeRegex,
         escapeHtml,
+        fingerprint,
         uniqueSuffix,
         wordRegex,
         applyReplacements,

@@ -444,6 +444,45 @@ it('erkennt mehrere betroffene Zeilen', () => {
     const hits = C.findSecretHints(code);
     assert(hits.includes(2) && hits.includes(4), 'erwartet Zeilen 2 und 4: ' + JSON.stringify(hits));
 });
+it('W11: Vergleichsoperatoren loesen keinen Fehlalarm aus', () => {
+    [
+        'if (secret == null) return;',
+        'if (server != other) { }',
+        'while (password >= min) { }',
+        'return apiKey === null;'
+    ].forEach(line => {
+        eq(C.findSecretHints(line).length, 0, 'Fehlalarm bei: ' + line);
+    });
+});
+it('W11: Bezeichner, die ein Geheimnis-Wort nur enthalten, loesen keinen Fehlalarm aus', () => {
+    [
+        'string apiKeyName = "x";',
+        'var connectionStringBuilder = new Builder();',
+        'var passwordPolicy = LadePolicy();'
+    ].forEach(line => {
+        eq(C.findSecretHints(line).length, 0, 'Fehlalarm bei: ' + line);
+    });
+});
+it('W11: Zuweisung ohne String-Literal ist kein Geheimnis', () => {
+    ['int server = 5;', 'var secret = null;'].forEach(line => {
+        eq(C.findSecretHints(line).length, 0, 'Fehlalarm bei: ' + line);
+    });
+});
+it('W11: echtes Geheimnis in einer Variablen wird weiterhin erkannt', () => {
+    eq(C.findSecretHints('var password = "hunter2";').length, 1);
+    eq(C.findSecretHints('var apiKey = "abc";').length, 1);
+});
+it('W11: echte Zuweisungen werden weiterhin erkannt', () => {
+    [
+        'var s = "Server=prod01;User=sa;Password=Geheim123;";',
+        'const c = "Data Source=x;Initial Catalog=y";',
+        'var h = "Authorization: Bearer abc123";',
+        'var k = "ApiKey=abcdef";',
+        'var a = "AccountKey=xyz==";'
+    ].forEach(line => {
+        eq(C.findSecretHints(line).length, 1, 'nicht erkannt: ' + line);
+    });
+});
 it('liefert leeres Array ohne Geheimnismuster', () => {
     const code = 'public class CS_CLASS_1 { public void CS_METHOD_1() { } }';
     eq(C.findSecretHints(code).length, 0);
@@ -471,6 +510,87 @@ it('SQL_STR_PLACEHOLDER_ wird nicht doppelt als STR_PLACEHOLDER_ mitgezaehlt', (
 it('erkennt Platzhalter mit Kollisions-Salt', () => {
     const hits = C.findLeftoverPlaceholders('var x = STR_PLACEHOLDER_ab12_4;');
     assert(hits.includes('STR_PLACEHOLDER_ab12_4'), JSON.stringify(hits));
+});
+
+console.log('\n# K5/T9 – Bezeichner mit Umlauten (Unicode)');
+// C# und T-SQL erlauben Unicode-Buchstaben in Bezeichnern. Mit ASCII-Zeichen-
+// klassen wurden solche Namen weder erkannt (Klartext-Leak) noch als Ganzes
+// ersetzt ("Kundenprüfung" -> "CS_CLASS_1üfung").
+const UMLAUT_REST = /(?:CS_[A-Z]+_|SQL_[A-Z]+_|STR_PLACEHOLDER_)\d+[\p{L}\p{N}_]/u;
+
+it('Auto-Analyse erkennt Klassenname mit Umlaut vollstaendig', () => {
+    const els = C.analyzeCSharpElements('public class Kundenprüfung { }');
+    const names = els.map(e => e.element);
+    assert(names.includes('Kundenprüfung'), 'erkannt: ' + JSON.stringify(names));
+    assert(!names.includes('Kundenpr'), 'abgeschnittener Torso erkannt: ' + JSON.stringify(names));
+});
+
+it('Auto-Analyse laesst kein Umlaut-Feld im Klartext liegen', () => {
+    const code = 'public class Haus {\n    private string Größe;\n    public void BerechneStraße(int anzahlHäuser) { var zwischenGröße = 1; }\n}';
+    const els = C.analyzeCSharpElements(code);
+    const names = els.map(e => e.element);
+    ['Größe', 'BerechneStraße', 'anzahlHäuser', 'zwischenGröße'].forEach(n => {
+        assert(names.includes(n), n + ' nicht erkannt – bleibt im Klartext. Erkannt: ' + JSON.stringify(names));
+    });
+});
+
+it('Verschleiern zerhackt Umlaut-Bezeichner nicht', () => {
+    const code = 'public class Kundenprüfung {\n    private string Größe;\n    public void BerechneStraße(int anzahlHäuser) { var zwischenGröße = 1; }\n}';
+    const els = C.analyzeCSharpElements(code);
+    const obf = C.applyReplacements(code, els.map(e => ({ from: e.element, to: e.placeholder })));
+    assert(!UMLAUT_REST.test(obf), 'Platzhalter mit angehaengtem Bezeichner-Rest: ' + obf);
+    ['Größe', 'Straße', 'Häuser', 'prüfung'].forEach(frag => {
+        assert(!obf.includes(frag), '"' + frag + '" steht noch im Klartext: ' + obf);
+    });
+    const back = C.reverseReplacements(obf, els.map(e => ({ placeholder: e.placeholder, original: e.element })));
+    eq(back, code, 'Round-Trip');
+});
+
+it('String-Replace trifft den ganzen Umlaut-Bezeichner', () => {
+    const code = 'var RaumGröße = 1; var RaumNummer = 2;';
+    const analyzed = C.analyzeCSharp(code, ['Raum']);
+    const names = analyzed.map(e => e.original);
+    assert(names.includes('RaumGröße'), 'erkannt: ' + JSON.stringify(names));
+    assert(!names.includes('RaumGr'), 'abgeschnittener Torso erkannt: ' + JSON.stringify(names));
+    const obf = C.applyReplacements(code, analyzed.map(e => ({ from: e.original, to: e.placeholder })));
+    assert(!UMLAUT_REST.test(obf), 'zerhackt: ' + obf);
+    const back = C.reverseReplacements(obf, analyzed.map(e => ({ placeholder: e.placeholder, original: e.original })));
+    eq(back, code, 'Round-Trip');
+});
+
+it('SQL-Analyse erkennt Tabellen und Spalten mit Umlaut vollstaendig', () => {
+    const sql = 'SELECT Größe, Anzahl FROM Gebäude INNER JOIN Räume ON Gebäude.ID = Räume.GebäudeID';
+    const els = C.analyzeSqlElements(sql);
+    const names = els.map(e => e.element);
+    ['Gebäude', 'Räume', 'Größe'].forEach(n => {
+        assert(names.includes(n), n + ' nicht erkannt. Erkannt: ' + JSON.stringify(names));
+    });
+    assert(!names.includes('Geb') && !names.includes('Gr'), 'Torso erkannt: ' + JSON.stringify(names));
+    const obf = C.applyReplacements(sql, els.map(e => ({ from: e.element, to: e.placeholder })));
+    assert(!UMLAUT_REST.test(obf), 'zerhackt: ' + obf);
+    assert(!obf.includes('Räume') && !obf.includes('Gebäude'), 'Klartext-Leak: ' + obf);
+});
+
+it('K5: ASCII-Schnellpfad kippt nicht, wenn Originale Umlaute enthalten', () => {
+    // Die Rückverwandlung fügt Umlaute in einen bis dahin reinen ASCII-Text ein.
+    // Mit \b-Grenzen würde ein Platzhalter direkt hinter einem eingesetzten "ö"
+    // fälschlich als eigenständiges Wort gelten.
+    const ai = 'var CS_LOCAL_1CS_LOCAL_2 = 1;';
+    const out = C.reverseReplacements(ai, [
+        { placeholder: 'CS_LOCAL_1', original: 'Größ' },
+        { placeholder: 'CS_LOCAL_2', original: 'eMax' }
+    ]);
+    // Beide Platzhalter kleben aneinander – keiner darf ersetzt werden.
+    eq(out, ai, 'Teilstück-Ersetzung trotz fehlender Wortgrenze');
+});
+it('K5: wordRegex ohne asciiFast bleibt Unicode-korrekt', () => {
+    eq('Kundenprüfung'.replace(C.wordRegex('Kundenpr', 'g'), 'X'), 'Kundenprüfung');
+    eq('Kundenpr.Feld'.replace(C.wordRegex('Kundenpr', 'g'), 'X'), 'X.Feld');
+});
+it('reine ASCII-Bezeichner verhalten sich unveraendert', () => {
+    const els = C.analyzeCSharpElements('public class CustomerService { private int userId; }');
+    const names = els.map(e => e.element);
+    assert(names.includes('CustomerService') && names.includes('userId'), JSON.stringify(names));
 });
 
 console.log(`\n──────────────────────────────────────────`);
