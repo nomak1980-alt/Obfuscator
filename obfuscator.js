@@ -601,6 +601,40 @@ function initMappingFilter(prefix) {
     populateFilterTypes(`${prefix}FilterType`, checkboxSelector);
     applyMappingFilter(`${prefix}FilterInput`, `${prefix}FilterType`, checkboxSelector);
     updateSelectionCounter(`${prefix}SelectionCounter`, checkboxSelector);
+    updateStringReplaceButton(prefix);
+}
+
+// Zeilen aus dem String-Replace tragen als einzige den Typ „String": die
+// automatische Erkennung vergibt ausschließlich deutsche Labels aus
+// CS_TYPE_LABEL (Klasse, Methode, …) bzw. SQL_TYPE_LABEL (Tabelle, Feld, …).
+const STRING_REPLACE_TYPE = 'String';
+
+function stringReplaceCheckboxes(checkboxSelector) {
+    return allCheckboxes(checkboxSelector).filter(cb => cb.dataset.type === STRING_REPLACE_TYPE);
+}
+
+// Setzt die Auswahl exklusiv auf die String-Replace-Zeilen. Bewusst über die
+// gesamte Tabelle statt nur über die sichtbaren Zeilen: „nur String-Replace"
+// wäre bei aktivem Filter sonst unvollständig. Die Statusmeldung ist deshalb
+// nötig – der Großteil der Wirkung liegt dann außerhalb des Sichtfelds.
+function selectStringReplaceOnly(prefix) {
+    const checkboxSelector = `.${prefix}-mapping-checkbox`;
+    const all = allCheckboxes(checkboxSelector);
+    const selected = stringReplaceCheckboxes(checkboxSelector).length;
+    // Ohne String-Replace-Zeilen würde der Klick die komplette Auswahl leeren.
+    if (selected === 0) return;
+    all.forEach(cb => { cb.checked = cb.dataset.type === STRING_REPLACE_TYPE; });
+    syncSelectAll(`${prefix}SelectAll`, checkboxSelector);
+    updateSelectionCounter(`${prefix}SelectionCounter`, checkboxSelector);
+    scheduleSave();
+    const statusFn = prefix === 'sql' ? showSqlStatus : showStatus;
+    statusFn(`${selected} String-Replace-Elemente ausgewählt, ${all.length - selected} abgewählt.`);
+}
+
+function updateStringReplaceButton(prefix) {
+    const btn = document.getElementById(`${prefix}SelectStringOnly`);
+    if (!btn) return;
+    btn.disabled = stringReplaceCheckboxes(`.${prefix}-mapping-checkbox`).length === 0;
 }
 
 async function copyToClipboard(sourceId, statusFn, label) {
@@ -1211,7 +1245,7 @@ window.ObfuscatorUI = {
     saveState, loadState, clearTabState, resetCsharpFields, resetSqlFields,
     captureSections, applySections,
     // Chip-/Auswahltabellen-Helfer:
-    addChip, applyMappingFilter, updateSelectionCounter,
+    addChip, applyMappingFilter, updateSelectionCounter, selectStringReplaceOnly,
     showStatus, showSqlStatus, notifyGlobal,
     // Nur lesender Zugriff auf den internen Zustand (für Test-Assertions).
     _state: {
@@ -1251,6 +1285,7 @@ const ACTIONS = {
     switchTab: el => switchTab(el.dataset.tab),
     analyzeCode, clearAll, obfuscateCode, copyObfuscated, deobfuscateCode, copyFinal,
     analyzeSqlCode, clearSqlAll, obfuscateSqlCode, copySqlObfuscated, deobfuscateSqlCode, copySqlFinal,
+    selectStringReplaceOnly: el => selectStringReplaceOnly(el.dataset.prefix),
     addCsharpChip: () => {
         const input = document.getElementById('stringReplaceInput');
         const before = csharpReplaceWords.length;

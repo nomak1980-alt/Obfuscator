@@ -552,6 +552,23 @@ h4 {
     font-size: 14px;
 }
 
+/* Die Filterzeile ist eine Werkzeugleiste, keine Aktionsleiste – der Button
+   ordnet sich der Höhe von Eingabefeld und Auswahlliste unter. */
+.mapping-filter-row button {
+    padding: 8px 14px;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+button:disabled,
+button:disabled:hover {
+    border-color: #3a3a4a;
+    box-shadow: 0 0 40px 40px #3a3a4a inset, 0 0 0 0 #3a3a4a;
+    color: #9090a0;
+    cursor: not-allowed;
+}
+
 .mapping-selection-counter {
     color: #a0a0a0;
     font-size: 13px;

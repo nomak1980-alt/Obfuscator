@@ -60,6 +60,19 @@ JSDOM.fromFile(path.join(__dirname, '..', 'obfuscator.html'), {
         firstCb.checked = true;
         firstCb.dispatchEvent(new win.Event('change', { bubbles: true })); // Auswahl für den nächsten Schritt wiederherstellen
 
+        // 2c) Button „Nur String-Replace" über die echte data-action-Delegation
+        const stringOnlyBtn = doc.getElementById('csharpSelectStringOnly');
+        it('Button „Nur String-Replace" ist im Dokument', !!stringOnlyBtn);
+        click(stringOnlyBtn);
+        const afterBtn = Array.from(doc.querySelectorAll('.csharp-mapping-checkbox'));
+        it('Klick wählt genau die String-Replace-Zeilen aus',
+            afterBtn.some(cb => cb.dataset.type === 'String') &&
+            afterBtn.every(cb => cb.checked === (cb.dataset.type === 'String')),
+            afterBtn.map(cb => `${cb.dataset.type}=${cb.checked}`).join(', '));
+
+        // Auswahl für den nächsten Schritt wiederherstellen
+        afterBtn.forEach(cb => { cb.checked = true; cb.dispatchEvent(new win.Event('change', { bubbles: true })); });
+
         // 3) Verschleiern via data-action
         click(doc.querySelector('[data-action="obfuscateCode"]'));
         it('Verschleiern ersetzt Bezeichner', !/\bBar\b/.test(doc.getElementById('obfuscatedCode').value));

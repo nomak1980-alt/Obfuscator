@@ -25,6 +25,7 @@ const HIDDEN_DOM = `
   <div id="csharpMappingSelectionSection"></div>
   <input id="csharpFilterInput" type="text">
   <select id="csharpFilterType"><option value=""></option></select>
+  <button id="csharpSelectStringOnly" data-action="selectStringReplaceOnly" data-prefix="csharp"></button>
   <span id="csharpSelectionCounter"></span>
   <div id="csharpMappingSelectionContainer"></div>
   <div id="csharpUsedMappingSection"></div>
@@ -42,6 +43,7 @@ const HIDDEN_DOM = `
   <div id="sqlMappingSelectionSection"></div>
   <input id="sqlFilterInput" type="text">
   <select id="sqlFilterType"><option value=""></option></select>
+  <button id="sqlSelectStringOnly" data-action="selectStringReplaceOnly" data-prefix="sql"></button>
   <span id="sqlSelectionCounter"></span>
   <div id="sqlMappingSelectionContainer"></div>
   <div id="sqlUsedMappingSection"></div>
@@ -779,6 +781,72 @@ const importTestDone = (() => {
                 resolve();
             }, 20);
         }, 20);
+    });
+})();
+
+console.log('\n# Auswahl-Komfort – Button „Nur String-Replace"');
+(() => {
+    const CODE = 'public class CustomerService { public void GetOrder(int orderId) { } }';
+    const boxOf = name => Array.from(doc.querySelectorAll('.csharp-mapping-checkbox'))
+        .find(cb => cb.dataset.original === name);
+    const analyzeWithChip = () => {
+        resetCsharp();
+        setVal('csharpFilterInput', '');
+        setVal('originalCode', CODE);
+        UI.addChip('CustomerService', UI._state.csharpReplaceWords, 'stringReplaceChips');
+        UI.analyzeCode();
+    };
+
+    analyzeWithChip();
+    it('Button ist aktiv, solange String-Replace-Zeilen existieren', () =>
+        assert(!$('csharpSelectStringOnly').disabled));
+
+    UI.selectStringReplaceOnly('csharp');
+    it('String-Replace-Zeile ist angehakt', () => assert(boxOf('CustomerService').checked));
+    it('automatisch erkannte Zeilen sind abgewählt', () =>
+        assert(!boxOf('GetOrder').checked && !boxOf('orderId').checked));
+    it('Zähler zeigt die neue Auswahl', () =>
+        eq($('csharpSelectionCounter').textContent, '1 von 3 ausgewählt'));
+    it('Kopf-Checkbox steht auf teilweise ausgewählt', () =>
+        assert(!$('csharpSelectAll').checked && $('csharpSelectAll').indeterminate));
+
+    // Bei aktivem Filter wirkt der Button trotzdem auf die ganze Tabelle.
+    analyzeWithChip();
+    setVal('csharpFilterInput', 'Order');
+    UI.applyMappingFilter('csharpFilterInput', 'csharpFilterType', '.csharp-mapping-checkbox');
+    UI.selectStringReplaceOnly('csharp');
+    it('ausgefilterte String-Replace-Zeile wird trotzdem angehakt', () =>
+        assert(boxOf('CustomerService').checked, 'CustomerService blieb abgewählt'));
+    it('sichtbare Auto-Zeilen werden abgewählt', () =>
+        assert(!boxOf('GetOrder').checked && !boxOf('orderId').checked));
+    setVal('csharpFilterInput', '');
+    UI.applyMappingFilter('csharpFilterInput', 'csharpFilterType', '.csharp-mapping-checkbox');
+
+    // Ohne String-Replace-Zeilen würde der Button die Auswahl leeren – deshalb gesperrt.
+    resetCsharp();
+    setVal('csharpFilterInput', '');
+    setVal('originalCode', CODE);
+    UI.analyzeCode();
+    it('Button ist ohne String-Replace-Zeilen deaktiviert', () =>
+        assert($('csharpSelectStringOnly').disabled));
+    UI.selectStringReplaceOnly('csharp');
+    it('Aufruf ohne String-Replace-Zeilen ändert die Auswahl nicht', () =>
+        assert(Array.from(doc.querySelectorAll('.csharp-mapping-checkbox')).every(cb => cb.checked)));
+
+    // Derselbe Code trägt die SQL-Tabelle.
+    resetSql();
+    setVal('sqlFilterInput', '');
+    setVal('sqlOriginalCode', 'SELECT UserName FROM Users');
+    UI.addChip('Users', UI._state.sqlReplaceWords, 'sqlStringReplaceChips');
+    UI.analyzeSqlCode();
+    UI.selectStringReplaceOnly('sql');
+    it('SQL: String-Replace-Zeilen an, SQL-Elemente ab', () => {
+        const all = Array.from(doc.querySelectorAll('.sql-mapping-checkbox'));
+        const str = all.filter(cb => cb.dataset.type === 'String');
+        const other = all.filter(cb => cb.dataset.type !== 'String');
+        assert(str.length > 0 && other.length > 0 &&
+            str.every(cb => cb.checked) && other.every(cb => !cb.checked),
+            all.map(cb => `${cb.dataset.type}=${cb.checked}`).join(', '));
     });
 })();
 
