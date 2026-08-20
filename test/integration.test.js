@@ -850,6 +850,94 @@ console.log('\n# Auswahl-Komfort – Button „Nur String-Replace"');
     });
 })();
 
+console.log('\n# Auswahl-Komfort – Shift-Bereichsauswahl');
+(() => {
+    const CODE = 'public class Alpha { public void Beta(int gamma, int delta, int epsilon) { } }';
+    const prepare = () => {
+        resetCsharp();
+        setVal('csharpFilterInput', '');
+        setVal('originalCode', CODE);
+        UI.analyzeCode();
+        return Array.from(doc.querySelectorAll('.csharp-mapping-checkbox'));
+    };
+    // Der Browser schaltet die angeklickte Box um, bevor der click-Listener
+    // läuft (in jsdom nachgemessen). Genau diese Reihenfolge wird hier
+    // nachgestellt, damit der Test dieselbe Ausgangslage hat wie die Seite.
+    const clickBox = (cb, shift) => {
+        cb.checked = !cb.checked;
+        UI.handleSelectionClick('csharp', cb, !!shift);
+    };
+
+    let boxes = prepare();
+    it('Testcode liefert mindestens 5 Zeilen', () => assert(boxes.length >= 5, `${boxes.length} Zeilen`));
+
+    // Vorwärts abwählen: Anker oben, Shift-Klick unten.
+    boxes.forEach(cb => { cb.checked = true; });
+    clickBox(boxes[1]);                       // hakt ab, setzt den Anker
+    clickBox(boxes[3], true);
+    it('Spanne vorwärts wird abgehakt', () =>
+        assert(!boxes[1].checked && !boxes[2].checked && !boxes[3].checked,
+            boxes.map(cb => cb.checked).join(', ')));
+    it('Zeilen außerhalb der Spanne bleiben unberührt', () =>
+        assert(boxes[0].checked && boxes[4].checked));
+
+    // Rückwärts anhaken: Anker unten, Shift-Klick oben.
+    boxes = prepare();
+    boxes.forEach(cb => { cb.checked = false; });
+    clickBox(boxes[4]);                       // hakt an, setzt den Anker
+    clickBox(boxes[2], true);
+    it('Spanne rückwärts wird angehakt', () =>
+        assert(boxes[2].checked && boxes[3].checked && boxes[4].checked,
+            boxes.map(cb => cb.checked).join(', ')));
+    it('Zeilen oberhalb der Spanne bleiben abgewählt', () =>
+        assert(!boxes[0].checked && !boxes[1].checked));
+
+    // Der Zustand des Ankers gewinnt, nicht der der zweiten Box.
+    boxes = prepare();
+    boxes.forEach(cb => { cb.checked = true; });
+    clickBox(boxes[0]);                       // Anker steht damit auf „aus"
+    clickBox(boxes[2], true);                 // zweite Box war angehakt
+    it('zweite Box übernimmt den Zustand des Ankers', () =>
+        assert(!boxes[2].checked, 'zweite Box behielt ihren eigenen Zustand'));
+
+    // Ausgefilterte Zeilen liegen nicht in der Spanne. Die Klasse wird direkt
+    // gesetzt: ein Textfilter kann nicht genau eine Zeile mitten aus der
+    // Spanne ausblenden, und `filtered-out` ist genau das, was
+    // applyMappingFilter setzt.
+    boxes = prepare();
+    boxes.forEach(cb => { cb.checked = true; });
+    boxes[2].closest('tr').classList.add('filtered-out');
+    clickBox(boxes[1]);
+    clickBox(boxes[3], true);
+    it('ausgefilterte Zeile mitten in der Spanne bleibt unverändert', () =>
+        assert(boxes[2].checked, 'ausgefilterte Zeile wurde mitgezogen'));
+    it('sichtbare Zeilen der Spanne wurden abgehakt', () =>
+        assert(!boxes[1].checked && !boxes[3].checked));
+    boxes[2].closest('tr').classList.remove('filtered-out');
+
+    // Ohne gültigen Anker verhält sich Shift wie ein gewöhnlicher Klick.
+    boxes = prepare();
+    boxes.forEach(cb => { cb.checked = true; });
+    clickBox(boxes[3], true);                 // frisch gerenderte Tabelle: kein Anker
+    it('Shift ohne Anker wirkt wie ein gewöhnlicher Klick', () =>
+        assert(!boxes[3].checked && boxes[0].checked && boxes[4].checked,
+            boxes.map(cb => cb.checked).join(', ')));
+    clickBox(boxes[1], true);                 // nun ist boxes[3] der Anker
+    it('der Shift-Klick ohne Anker setzt den neuen Anker', () =>
+        assert(!boxes[1].checked && !boxes[2].checked,
+            boxes.map(cb => cb.checked).join(', ')));
+
+    // Zähler und Kopf-Checkbox werden nachgezogen.
+    boxes = prepare();
+    boxes.forEach(cb => { cb.checked = true; });
+    clickBox(boxes[0]);
+    clickBox(boxes[boxes.length - 1], true);
+    it('Zähler zeigt nach der Bereichsauswahl 0 ausgewählt', () =>
+        eq($('csharpSelectionCounter').textContent, `0 von ${boxes.length} ausgewählt`));
+    it('Kopf-Checkbox ist danach abgehakt', () =>
+        assert(!$('csharpSelectAll').checked && !$('csharpSelectAll').indeterminate));
+})();
+
 importTestDone.then(() => {
     console.log(`\n──────────────────────────────────────────`);
     console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);

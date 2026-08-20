@@ -42,7 +42,10 @@ JSDOM.fromFile(path.join(__dirname, '..', 'obfuscator.html'), {
 
         // 2) Analyse via data-action-Button
         const UI = win.ObfuscatorUI;
-        doc.getElementById('originalCode').value = 'class Foo { Bar Baz; }';
+        // Feld-Deklarationen wie „Bar Baz;" erkennt die Analyse außerhalb einer
+        // Methode nicht (geprüft: nur Bar/String und Foo/Klasse entstehen daraus) –
+        // die Methode Qux(quux) liefert die dritte Zeile für die Shift-Bereichsauswahl weiter unten.
+        doc.getElementById('originalCode').value = 'class Foo { Bar Baz; public void Qux(int quux) { } }';
         UI.addChip('Bar', UI._state.csharpReplaceWords, 'stringReplaceChips');
         const analyzeBtn = doc.querySelector('[data-action="analyzeCode"]');
         click(analyzeBtn);
@@ -72,6 +75,18 @@ JSDOM.fromFile(path.join(__dirname, '..', 'obfuscator.html'), {
 
         // Auswahl für den nächsten Schritt wiederherstellen
         afterBtn.forEach(cb => { cb.checked = true; cb.dispatchEvent(new win.Event('change', { bubbles: true })); });
+
+        // Shift-Bereichsauswahl über die echte Klick-Delegation
+        const boxes = Array.from(doc.querySelectorAll('.csharp-mapping-checkbox'));
+        it('Auswahltabelle hat mindestens 3 Zeilen', boxes.length >= 3, `${boxes.length} Zeilen`);
+        boxes.forEach(cb => { cb.checked = false; cb.dispatchEvent(new win.Event('change', { bubbles: true })); });
+        click(boxes[0]);                                   // hakt an und setzt den Anker
+        boxes[boxes.length - 1].dispatchEvent(new win.MouseEvent('click', { bubbles: true, shiftKey: true }));
+        it('Shift-Klick hakt die gesamte Spanne an', boxes.every(cb => cb.checked),
+            boxes.map(cb => cb.checked).join(', '));
+
+        // Auswahl für den nächsten Schritt wiederherstellen
+        boxes.forEach(cb => { cb.checked = true; cb.dispatchEvent(new win.Event('change', { bubbles: true })); });
 
         // 3) Verschleiern via data-action
         click(doc.querySelector('[data-action="obfuscateCode"]'));

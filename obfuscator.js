@@ -637,6 +637,43 @@ function updateStringReplaceButton(prefix) {
     btn.disabled = stringReplaceCheckboxes(`.${prefix}-mapping-checkbox`).length === 0;
 }
 
+// Anker der Shift-Bereichsauswahl, je Tabelle getrennt. Gespeichert wird die
+// Checkbox selbst, nicht ihr Index: eine zwischenzeitliche Filteränderung
+// würde sonst alle Indizes verschieben und den Anker still verfälschen.
+const rangeAnchors = { csharp: null, sql: null };
+
+// Überträgt den Zustand des Ankers auf die Spanne zwischen Anker und
+// angeklickter Zeile, die angeklickte eingeschlossen. Der erste Klick legt
+// damit die Richtung fest (an oder aus). Ausgefilterte Zeilen stehen nicht in
+// `visible` und bleiben unverändert – dieselbe Regel wie bei der
+// Kopf-Checkbox (U13). Rückgabe: true, wenn eine Spanne übertragen wurde.
+function applyRangeSelection(prefix, target) {
+    const checkboxSelector = `.${prefix}-mapping-checkbox`;
+    const visible = visibleCheckboxes(checkboxSelector);
+    const from = visible.indexOf(rangeAnchors[prefix]);
+    const to = visible.indexOf(target);
+    // Kein Anker, Anker aus einer neu gebauten Tabelle, Anker oder Ziel gerade
+    // ausgefiltert, oder beides dieselbe Zeile: keine Spanne.
+    if (from === -1 || to === -1 || from === to) return false;
+    const state = visible[from].checked;
+    const lo = Math.min(from, to);
+    const hi = Math.max(from, to);
+    for (let i = lo; i <= hi; i++) visible[i].checked = state;
+    syncSelectAll(`${prefix}SelectAll`, checkboxSelector);
+    updateSelectionCounter(`${prefix}SelectionCounter`, checkboxSelector);
+    scheduleSave();
+    return true;
+}
+
+// Kern der Klick-Logik, bewusst getrennt vom Event-Listener: der Listener wird
+// erst bei DOMContentLoaded installiert, in jsdom-Tests läuft er deshalb nie.
+function handleSelectionClick(prefix, checkbox, shiftKey) {
+    // Bei erfolgreicher Spanne bleibt der Anker stehen – ein weiterer
+    // Shift-Klick spannt dadurch erneut von derselben Zeile aus.
+    if (shiftKey && applyRangeSelection(prefix, checkbox)) return;
+    rangeAnchors[prefix] = checkbox;
+}
+
 async function copyToClipboard(sourceId, statusFn, label) {
     try {
         const text = document.getElementById(sourceId).value;
@@ -1246,6 +1283,7 @@ window.ObfuscatorUI = {
     captureSections, applySections,
     // Chip-/Auswahltabellen-Helfer:
     addChip, applyMappingFilter, updateSelectionCounter, selectStringReplaceOnly,
+    handleSelectionClick,
     showStatus, showSqlStatus, notifyGlobal,
     // Nur lesender Zugriff auf den internen Zustand (für Test-Assertions).
     _state: {
@@ -1395,6 +1433,25 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (ev.target.id === 'csharpSelectAll' || ev.target.id === 'sqlSelectAll') {
             scheduleSave();
         }
+    });
+
+    // Shift-Bereichsauswahl. Der Browser hat die angeklickte Box hier bereits
+    // umgeschaltet; handleSelectionClick schreibt den Zustand des Ankers
+    // anschließend über die gesamte Spanne.
+    document.addEventListener('click', (ev) => {
+        const cb = ev.target;
+        if (!cb || !cb.matches) return;
+        const prefix = cb.matches('.csharp-mapping-checkbox') ? 'csharp'
+            : cb.matches('.sql-mapping-checkbox') ? 'sql' : null;
+        if (!prefix) return;
+        handleSelectionClick(prefix, cb, ev.shiftKey);
+    });
+
+    // Ohne das markiert der Shift-Klick den Text zwischen beiden Zeilen. Das
+    // Umschalten der Checkbox hängt am click-Event und bleibt unberührt.
+    document.addEventListener('mousedown', (ev) => {
+        if (!ev.shiftKey || !ev.target || !ev.target.matches) return;
+        if (ev.target.matches('.csharp-mapping-checkbox, .sql-mapping-checkbox')) ev.preventDefault();
     });
 });
 
