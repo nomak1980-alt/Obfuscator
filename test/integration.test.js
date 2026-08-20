@@ -758,6 +758,15 @@ const importTestDone = (() => {
     const fakeEvent = { target: { files: [file], value: 'backup.json' } };
 
     // importState() liest asynchron per FileReader – auf das Ergebnis warten.
+    // Die Wartezeit ist bewusst großzügig (200ms statt vormals 20ms): dieser
+    // Block prüft `originalCode` über ein setTimeout, aber das ganze übrige
+    // Testskript läuft synchron weiter und setzt `originalCode` in späteren
+    // Blöcken (z.B. „Auswahl-Komfort") wiederholt neu. Bei knapper Frist
+    // gewann gelegentlich der spätere, rein synchrone Code das Rennen gegen
+    // den asynchronen FileReader, bevor dessen Ergebnis geprüft wurde – ein
+    // von dieser Aufgabe unabhängiger, vorbestehender Timing-Bug, der beim
+    // Hinzufügen des neuen Shift-Klick-Tests unten (mehr synchroner Code nach
+    // diesem Block) messbar häufiger zuschlug.
     return new Promise(resolve => {
         UI.importState(fakeEvent);
         setTimeout(() => {
@@ -779,8 +788,8 @@ const importTestDone = (() => {
                 it('importState() lässt originalCode bei kaputtem JSON unverändert', () =>
                     eq($('originalCode').value, before));
                 resolve();
-            }, 20);
-        }, 20);
+            }, 200);
+        }, 200);
     });
 })();
 
@@ -936,6 +945,24 @@ console.log('\n# Auswahl-Komfort – Shift-Bereichsauswahl');
         eq($('csharpSelectionCounter').textContent, `0 von ${boxes.length} ausgewählt`));
     it('Kopf-Checkbox ist danach abgehakt', () =>
         assert(!$('csharpSelectAll').checked && !$('csharpSelectAll').indeterminate));
+
+    // Der Anker bleibt nach einer erfolgreichen Spanne stehen, statt zur
+    // angeklickten Zeile zu wandern – ein zweiter Shift-Klick spannt dadurch
+    // wieder von derselben Zeile aus. Der reine Endzustand unterscheidet die
+    // beiden Anker-Kandidaten nicht (beide Spannen enden gleich), deshalb hier
+    // über die Spannweite: boxes[2] wird zwischen den beiden Shift-Klicks
+    // direkt (ohne Klick, also ohne den Anker zu berühren) auf „aus" gesetzt.
+    // Bleibt der Anker bei boxes[1] stehen, reicht die zweite Spanne von 1
+    // bis 4 und hakt boxes[2] wieder an. Wanderte der Anker zu boxes[3],
+    // reicht sie nur von 3 bis 4 und boxes[2] bleibt abgehakt.
+    boxes = prepare();
+    boxes.forEach(cb => { cb.checked = false; });
+    clickBox(boxes[1]);                       // hakt an, setzt den Anker auf boxes[1]
+    clickBox(boxes[3], true);                 // Spanne 1..3 an, Anker bleibt bei boxes[1] stehen
+    boxes[2].checked = false;                 // direkte Zuweisung, kein Klick – rührt den Anker nicht an
+    clickBox(boxes[4], true);
+    it('Anker bleibt nach erfolgreichem Shift-Klick stehen', () =>
+        assert(boxes[2].checked, 'Anker wanderte auf die zuletzt angeklickte Zeile statt stehen zu bleiben'));
 })();
 
 importTestDone.then(() => {
