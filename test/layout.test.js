@@ -54,6 +54,50 @@ function it(name, cond, extra) {
         const desktopCols = await page.evaluate(() =>
             getComputedStyle(document.querySelector('.code-row')).gridTemplateColumns.split(' ').length);
         it('.code-row ist am Desktop (1920px) zweispaltig', desktopCols === 2, `${desktopCols} Spalten`);
+
+        // Finding 3: Tastatur-Bereichsauswahl (Tab + Shift+Leertaste). Die Spec
+        // behauptete früher, es gäbe dafür keinen Tastaturweg – das stimmt nicht:
+        // Der Browser löst beim Drücken der Leertaste auf einer fokussierten
+        // Checkbox von sich aus ein echtes click-Event mit shiftKey aus, und die
+        // delegierte Klick-Behandlung unterscheidet nicht zwischen Maus- und
+        // Tastatur-Ursprung. jsdom synthetisiert diesen Browser-Automatismus
+        // nicht (kein click aus Shift+Space) – deshalb hier über echtes Chromium,
+        // auf einer eigenen Seite mit eigenem Viewport, unabhängig von den
+        // Layout-Zusicherungen oben.
+        const kbPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+        try {
+            await kbPage.goto('file://' + path.join(__dirname, '..', 'obfuscator.html'));
+            await kbPage.fill('#originalCode',
+                'class Foo { public int Alpha; public int Beta; public int Gamma; public int Delta; }');
+            await kbPage.click('[data-action="analyzeCode"]');
+
+            const kbBoxes = kbPage.locator('.csharp-mapping-checkbox');
+            await kbBoxes.nth(4).waitFor();
+            const kbCount = await kbBoxes.count();
+            it('Tastaturtest: Analyse erzeugt mindestens 5 Auswahlzeilen', kbCount >= 5, `${kbCount} Zeilen`);
+
+            // Zeile 0 fokussieren und mit Leertaste umschalten (checked → unchecked,
+            // setzt zugleich den Anker der Bereichsauswahl).
+            await kbBoxes.nth(0).focus();
+            await kbPage.keyboard.press('Space');
+            // Drei Tabs zu Zeile 3 – Zeilen 1 und 2 bleiben dabei unbesucht ("dazwischen").
+            for (let i = 0; i < 3; i++) await kbPage.keyboard.press('Tab');
+            await kbPage.keyboard.down('Shift');
+            await kbPage.keyboard.press('Space');
+            await kbPage.keyboard.up('Shift');
+
+            const kbStates = await kbBoxes.evaluateAll(els => els.map(el => el.checked));
+            it('Tastatur-Bereichsauswahl: Anker-Zeile (0) ist abgehakt',
+                kbStates[0] === false, kbStates.join(', '));
+            it('Tastatur-Bereichsauswahl: nur per Tab übersprungene Zeilen dazwischen (1, 2) übernehmen den Anker-Zustand',
+                kbStates[1] === false && kbStates[2] === false, kbStates.join(', '));
+            it('Tastatur-Bereichsauswahl: Ziel-Zeile (3) übernimmt ebenfalls den Anker-Zustand',
+                kbStates[3] === false, kbStates.join(', '));
+            it('Tastatur-Bereichsauswahl: Zeile außerhalb der Spanne (4) bleibt unverändert',
+                kbStates[4] === true, kbStates.join(', '));
+        } finally {
+            await kbPage.close();
+        }
     } finally {
         await browser.close();
     }

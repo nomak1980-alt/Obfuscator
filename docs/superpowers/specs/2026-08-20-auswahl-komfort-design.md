@@ -109,12 +109,19 @@ Da die Zustände per Skript gesetzt werden, feuert für die mitgezogenen Zeilen
 kein `change`-Event. Kopf-Checkbox, Zähler und `scheduleSave` werden im Handler
 deshalb explizit aufgerufen.
 
-### Bewusste Grenze
+### Tastaturzugriff
 
-Per Tastatur (Leertaste) gibt es keine Bereichsauswahl. Das nachzubauen hieße,
-Fokus- und Shift-Zustand für die Tastatur getrennt zu verfolgen; der Nutzen wäre
-bei einer Maus-Tabelle gering. Filter plus Kopf-Checkbox bleiben der
-Tastaturweg zur Massenauswahl.
+Die Bereichsauswahl funktioniert auch per Tastatur, ohne dass dafür eigener
+Code nötig war: Der Browser löst beim Drücken der Leertaste auf einer
+fokussierten Checkbox von sich aus ein echtes `click`-Event aus, dessen
+`shiftKey` den aktuell gedrückten Shift-Zustand widerspiegelt. Die delegierte
+Klick-Behandlung (`handleSelectionClick`) reagiert auf genau dieses
+`click`-Event und unterscheidet nicht, ob es von der Maus oder von der
+Tastatur ausgelöst wurde. Wer also eine Checkbox per Tab fokussiert, mit der
+Leertaste umschaltet (das setzt den Anker), zu einer weiteren Checkbox tabbt
+und dort Shift+Leertaste drückt, überträgt die Spanne genauso wie mit einem
+Maus-Shift-Klick — ganz ohne Maus. Verifiziert in einer echten
+Chromium-Sitzung; siehe der Playwright-Test dazu in `test/layout.test.js`.
 
 ## Tests
 

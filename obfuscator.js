@@ -1029,11 +1029,17 @@ function displaySqlMappingSelection(potentialMappings) {
     // String-Replace-Wörter zuerst (aus sqlStringReplaceMapping)
     sqlStringReplaceMapping.forEach((placeholder, word) =>
         rows.push({ name: word, value: placeholder, type: 'String' }));
-    // SQL-Elemente alphabetisch sortiert
-    Array.from(potentialMappings.keys()).sort((a, b) => a.localeCompare(b)).forEach(element => {
-        const mapping = potentialMappings.get(element);
-        rows.push({ name: element, value: mapping.obfuscated, type: mapping.type });
-    });
+    // SQL-Elemente alphabetisch sortiert. Einträge, die bereits als
+    // String-Replace-Zeile gerendert wurden, hier überspringen (Befund: beim
+    // Wiederherstellen aus loadState() landen String-Replace-Zeilen erneut in
+    // potentialMappings, weil restoreSqlSelection() unterschiedslos alle
+    // gespeicherten Zeilen einspeist – ohne diesen Filter erscheinen sie doppelt).
+    Array.from(potentialMappings.keys())
+        .filter(element => !sqlStringReplaceMapping.has(element))
+        .sort((a, b) => a.localeCompare(b)).forEach(element => {
+            const mapping = potentialMappings.get(element);
+            rows.push({ name: element, value: mapping.obfuscated, type: mapping.type });
+        });
     renderSelectionTable(SQL_TABLE, rows);
 
     const sqlSelSec = document.getElementById('sqlMappingSelectionSection');
