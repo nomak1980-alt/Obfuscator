@@ -25,6 +25,7 @@ const HIDDEN_DOM = `
   <div id="csharpMappingSelectionSection"></div>
   <input id="csharpFilterInput" type="text">
   <select id="csharpFilterType"><option value=""></option></select>
+  <button id="csharpSelectStringOnly" data-action="selectStringReplaceOnly" data-prefix="csharp"></button>
   <span id="csharpSelectionCounter"></span>
   <div id="csharpMappingSelectionContainer"></div>
   <div id="csharpUsedMappingSection"></div>
@@ -42,6 +43,7 @@ const HIDDEN_DOM = `
   <div id="sqlMappingSelectionSection"></div>
   <input id="sqlFilterInput" type="text">
   <select id="sqlFilterType"><option value=""></option></select>
+  <button id="sqlSelectStringOnly" data-action="selectStringReplaceOnly" data-prefix="sql"></button>
   <span id="sqlSelectionCounter"></span>
   <div id="sqlMappingSelectionContainer"></div>
   <div id="sqlUsedMappingSection"></div>
@@ -756,6 +758,15 @@ const importTestDone = (() => {
     const fakeEvent = { target: { files: [file], value: 'backup.json' } };
 
     // importState() liest asynchron per FileReader – auf das Ergebnis warten.
+    // Die Wartezeit ist bewusst großzügig (200ms statt vormals 20ms): dieser
+    // Block prüft `originalCode` über ein setTimeout, aber das ganze übrige
+    // Testskript läuft synchron weiter und setzt `originalCode` in späteren
+    // Blöcken (z.B. „Auswahl-Komfort") wiederholt neu. Bei knapper Frist
+    // gewann gelegentlich der spätere, rein synchrone Code das Rennen gegen
+    // den asynchronen FileReader, bevor dessen Ergebnis geprüft wurde – ein
+    // von dieser Aufgabe unabhängiger, vorbestehender Timing-Bug, der beim
+    // Hinzufügen des neuen Shift-Klick-Tests unten (mehr synchroner Code nach
+    // diesem Block) messbar häufiger zuschlug.
     return new Promise(resolve => {
         UI.importState(fakeEvent);
         setTimeout(() => {
@@ -777,9 +788,181 @@ const importTestDone = (() => {
                 it('importState() lässt originalCode bei kaputtem JSON unverändert', () =>
                     eq($('originalCode').value, before));
                 resolve();
-            }, 20);
-        }, 20);
+            }, 200);
+        }, 200);
     });
+})();
+
+console.log('\n# Auswahl-Komfort – Button „Nur String-Replace"');
+(() => {
+    const CODE = 'public class CustomerService { public void GetOrder(int orderId) { } }';
+    const boxOf = name => Array.from(doc.querySelectorAll('.csharp-mapping-checkbox'))
+        .find(cb => cb.dataset.original === name);
+    const analyzeWithChip = () => {
+        resetCsharp();
+        setVal('csharpFilterInput', '');
+        setVal('originalCode', CODE);
+        UI.addChip('CustomerService', UI._state.csharpReplaceWords, 'stringReplaceChips');
+        UI.analyzeCode();
+    };
+
+    analyzeWithChip();
+    it('Button ist aktiv, solange String-Replace-Zeilen existieren', () =>
+        assert(!$('csharpSelectStringOnly').disabled));
+
+    UI.selectStringReplaceOnly('csharp');
+    it('String-Replace-Zeile ist angehakt', () => assert(boxOf('CustomerService').checked));
+    it('automatisch erkannte Zeilen sind abgewählt', () =>
+        assert(!boxOf('GetOrder').checked && !boxOf('orderId').checked));
+    it('Zähler zeigt die neue Auswahl', () =>
+        eq($('csharpSelectionCounter').textContent, '1 von 3 ausgewählt'));
+    it('Kopf-Checkbox steht auf teilweise ausgewählt', () =>
+        assert(!$('csharpSelectAll').checked && $('csharpSelectAll').indeterminate));
+
+    // Bei aktivem Filter wirkt der Button trotzdem auf die ganze Tabelle.
+    analyzeWithChip();
+    setVal('csharpFilterInput', 'Order');
+    UI.applyMappingFilter('csharpFilterInput', 'csharpFilterType', '.csharp-mapping-checkbox');
+    UI.selectStringReplaceOnly('csharp');
+    it('ausgefilterte String-Replace-Zeile wird trotzdem angehakt', () =>
+        assert(boxOf('CustomerService').checked, 'CustomerService blieb abgewählt'));
+    it('sichtbare Auto-Zeilen werden abgewählt', () =>
+        assert(!boxOf('GetOrder').checked && !boxOf('orderId').checked));
+    setVal('csharpFilterInput', '');
+    UI.applyMappingFilter('csharpFilterInput', 'csharpFilterType', '.csharp-mapping-checkbox');
+
+    // Ohne String-Replace-Zeilen würde der Button die Auswahl leeren – deshalb gesperrt.
+    resetCsharp();
+    setVal('csharpFilterInput', '');
+    setVal('originalCode', CODE);
+    UI.analyzeCode();
+    it('Button ist ohne String-Replace-Zeilen deaktiviert', () =>
+        assert($('csharpSelectStringOnly').disabled));
+    UI.selectStringReplaceOnly('csharp');
+    it('Aufruf ohne String-Replace-Zeilen ändert die Auswahl nicht', () =>
+        assert(Array.from(doc.querySelectorAll('.csharp-mapping-checkbox')).every(cb => cb.checked)));
+
+    // Derselbe Code trägt die SQL-Tabelle.
+    resetSql();
+    setVal('sqlFilterInput', '');
+    setVal('sqlOriginalCode', 'SELECT UserName FROM Users');
+    UI.addChip('Users', UI._state.sqlReplaceWords, 'sqlStringReplaceChips');
+    UI.analyzeSqlCode();
+    UI.selectStringReplaceOnly('sql');
+    it('SQL: String-Replace-Zeilen an, SQL-Elemente ab', () => {
+        const all = Array.from(doc.querySelectorAll('.sql-mapping-checkbox'));
+        const str = all.filter(cb => cb.dataset.type === 'String');
+        const other = all.filter(cb => cb.dataset.type !== 'String');
+        assert(str.length > 0 && other.length > 0 &&
+            str.every(cb => cb.checked) && other.every(cb => !cb.checked),
+            all.map(cb => `${cb.dataset.type}=${cb.checked}`).join(', '));
+    });
+})();
+
+console.log('\n# Auswahl-Komfort – Shift-Bereichsauswahl');
+(() => {
+    const CODE = 'public class Alpha { public void Beta(int gamma, int delta, int epsilon) { } }';
+    const prepare = () => {
+        resetCsharp();
+        setVal('csharpFilterInput', '');
+        setVal('originalCode', CODE);
+        UI.analyzeCode();
+        return Array.from(doc.querySelectorAll('.csharp-mapping-checkbox'));
+    };
+    // Der Browser schaltet die angeklickte Box um, bevor der click-Listener
+    // läuft (in jsdom nachgemessen). Genau diese Reihenfolge wird hier
+    // nachgestellt, damit der Test dieselbe Ausgangslage hat wie die Seite.
+    const clickBox = (cb, shift) => {
+        cb.checked = !cb.checked;
+        UI.handleSelectionClick('csharp', cb, !!shift);
+    };
+
+    let boxes = prepare();
+    it('Testcode liefert mindestens 5 Zeilen', () => assert(boxes.length >= 5, `${boxes.length} Zeilen`));
+
+    // Vorwärts abwählen: Anker oben, Shift-Klick unten.
+    boxes.forEach(cb => { cb.checked = true; });
+    clickBox(boxes[1]);                       // hakt ab, setzt den Anker
+    clickBox(boxes[3], true);
+    it('Spanne vorwärts wird abgehakt', () =>
+        assert(!boxes[1].checked && !boxes[2].checked && !boxes[3].checked,
+            boxes.map(cb => cb.checked).join(', ')));
+    it('Zeilen außerhalb der Spanne bleiben unberührt', () =>
+        assert(boxes[0].checked && boxes[4].checked));
+
+    // Rückwärts anhaken: Anker unten, Shift-Klick oben.
+    boxes = prepare();
+    boxes.forEach(cb => { cb.checked = false; });
+    clickBox(boxes[4]);                       // hakt an, setzt den Anker
+    clickBox(boxes[2], true);
+    it('Spanne rückwärts wird angehakt', () =>
+        assert(boxes[2].checked && boxes[3].checked && boxes[4].checked,
+            boxes.map(cb => cb.checked).join(', ')));
+    it('Zeilen oberhalb der Spanne bleiben abgewählt', () =>
+        assert(!boxes[0].checked && !boxes[1].checked));
+
+    // Der Zustand des Ankers gewinnt, nicht der der zweiten Box.
+    boxes = prepare();
+    boxes.forEach(cb => { cb.checked = true; });
+    clickBox(boxes[0]);                       // Anker steht damit auf „aus"
+    clickBox(boxes[2], true);                 // zweite Box war angehakt
+    it('zweite Box übernimmt den Zustand des Ankers', () =>
+        assert(!boxes[2].checked, 'zweite Box behielt ihren eigenen Zustand'));
+
+    // Ausgefilterte Zeilen liegen nicht in der Spanne. Die Klasse wird direkt
+    // gesetzt: ein Textfilter kann nicht genau eine Zeile mitten aus der
+    // Spanne ausblenden, und `filtered-out` ist genau das, was
+    // applyMappingFilter setzt.
+    boxes = prepare();
+    boxes.forEach(cb => { cb.checked = true; });
+    boxes[2].closest('tr').classList.add('filtered-out');
+    clickBox(boxes[1]);
+    clickBox(boxes[3], true);
+    it('ausgefilterte Zeile mitten in der Spanne bleibt unverändert', () =>
+        assert(boxes[2].checked, 'ausgefilterte Zeile wurde mitgezogen'));
+    it('sichtbare Zeilen der Spanne wurden abgehakt', () =>
+        assert(!boxes[1].checked && !boxes[3].checked));
+    boxes[2].closest('tr').classList.remove('filtered-out');
+
+    // Ohne gültigen Anker verhält sich Shift wie ein gewöhnlicher Klick.
+    boxes = prepare();
+    boxes.forEach(cb => { cb.checked = true; });
+    clickBox(boxes[3], true);                 // frisch gerenderte Tabelle: kein Anker
+    it('Shift ohne Anker wirkt wie ein gewöhnlicher Klick', () =>
+        assert(!boxes[3].checked && boxes[0].checked && boxes[4].checked,
+            boxes.map(cb => cb.checked).join(', ')));
+    clickBox(boxes[1], true);                 // nun ist boxes[3] der Anker
+    it('der Shift-Klick ohne Anker setzt den neuen Anker', () =>
+        assert(!boxes[1].checked && !boxes[2].checked,
+            boxes.map(cb => cb.checked).join(', ')));
+
+    // Zähler und Kopf-Checkbox werden nachgezogen.
+    boxes = prepare();
+    boxes.forEach(cb => { cb.checked = true; });
+    clickBox(boxes[0]);
+    clickBox(boxes[boxes.length - 1], true);
+    it('Zähler zeigt nach der Bereichsauswahl 0 ausgewählt', () =>
+        eq($('csharpSelectionCounter').textContent, `0 von ${boxes.length} ausgewählt`));
+    it('Kopf-Checkbox ist danach abgehakt', () =>
+        assert(!$('csharpSelectAll').checked && !$('csharpSelectAll').indeterminate));
+
+    // Der Anker bleibt nach einer erfolgreichen Spanne stehen, statt zur
+    // angeklickten Zeile zu wandern – ein zweiter Shift-Klick spannt dadurch
+    // wieder von derselben Zeile aus. Der reine Endzustand unterscheidet die
+    // beiden Anker-Kandidaten nicht (beide Spannen enden gleich), deshalb hier
+    // über die Spannweite: boxes[2] wird zwischen den beiden Shift-Klicks
+    // direkt (ohne Klick, also ohne den Anker zu berühren) auf „aus" gesetzt.
+    // Bleibt der Anker bei boxes[1] stehen, reicht die zweite Spanne von 1
+    // bis 4 und hakt boxes[2] wieder an. Wanderte der Anker zu boxes[3],
+    // reicht sie nur von 3 bis 4 und boxes[2] bleibt abgehakt.
+    boxes = prepare();
+    boxes.forEach(cb => { cb.checked = false; });
+    clickBox(boxes[1]);                       // hakt an, setzt den Anker auf boxes[1]
+    clickBox(boxes[3], true);                 // Spanne 1..3 an, Anker bleibt bei boxes[1] stehen
+    boxes[2].checked = false;                 // direkte Zuweisung, kein Klick – rührt den Anker nicht an
+    clickBox(boxes[4], true);
+    it('Anker bleibt nach erfolgreichem Shift-Klick stehen', () =>
+        assert(boxes[2].checked, 'Anker wanderte auf die zuletzt angeklickte Zeile statt stehen zu bleiben'));
 })();
 
 importTestDone.then(() => {

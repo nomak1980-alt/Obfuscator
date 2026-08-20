@@ -601,6 +601,77 @@ function initMappingFilter(prefix) {
     populateFilterTypes(`${prefix}FilterType`, checkboxSelector);
     applyMappingFilter(`${prefix}FilterInput`, `${prefix}FilterType`, checkboxSelector);
     updateSelectionCounter(`${prefix}SelectionCounter`, checkboxSelector);
+    updateStringReplaceButton(prefix);
+}
+
+// Zeilen aus dem String-Replace tragen als einzige den Typ „String": die
+// automatische Erkennung vergibt ausschließlich deutsche Labels aus
+// CS_TYPE_LABEL (Klasse, Methode, …) bzw. SQL_TYPE_LABEL (Tabelle, Feld, …).
+const STRING_REPLACE_TYPE = 'String';
+
+function stringReplaceCheckboxes(checkboxSelector) {
+    return allCheckboxes(checkboxSelector).filter(cb => cb.dataset.type === STRING_REPLACE_TYPE);
+}
+
+// Setzt die Auswahl exklusiv auf die String-Replace-Zeilen. Bewusst über die
+// gesamte Tabelle statt nur über die sichtbaren Zeilen: „nur String-Replace"
+// wäre bei aktivem Filter sonst unvollständig. Die Statusmeldung ist deshalb
+// nötig – der Großteil der Wirkung liegt dann außerhalb des Sichtfelds.
+function selectStringReplaceOnly(prefix) {
+    const checkboxSelector = `.${prefix}-mapping-checkbox`;
+    const all = allCheckboxes(checkboxSelector);
+    const selected = stringReplaceCheckboxes(checkboxSelector).length;
+    // Ohne String-Replace-Zeilen würde der Klick die komplette Auswahl leeren.
+    if (selected === 0) return;
+    all.forEach(cb => { cb.checked = cb.dataset.type === STRING_REPLACE_TYPE; });
+    syncSelectAll(`${prefix}SelectAll`, checkboxSelector);
+    updateSelectionCounter(`${prefix}SelectionCounter`, checkboxSelector);
+    scheduleSave();
+    const statusFn = prefix === 'sql' ? showSqlStatus : showStatus;
+    statusFn(`${selected} String-Replace-Elemente ausgewählt, ${all.length - selected} abgewählt.`);
+}
+
+function updateStringReplaceButton(prefix) {
+    const btn = document.getElementById(`${prefix}SelectStringOnly`);
+    if (!btn) return;
+    btn.disabled = stringReplaceCheckboxes(`.${prefix}-mapping-checkbox`).length === 0;
+}
+
+// Anker der Shift-Bereichsauswahl, je Tabelle getrennt. Gespeichert wird die
+// Checkbox selbst, nicht ihr Index: eine zwischenzeitliche Filteränderung
+// würde sonst alle Indizes verschieben und den Anker still verfälschen.
+const rangeAnchors = { csharp: null, sql: null };
+
+// Überträgt den Zustand des Ankers auf die Spanne zwischen Anker und
+// angeklickter Zeile, die angeklickte eingeschlossen. Der erste Klick legt
+// damit die Richtung fest (an oder aus). Ausgefilterte Zeilen stehen nicht in
+// `visible` und bleiben unverändert – dieselbe Regel wie bei der
+// Kopf-Checkbox (U13). Rückgabe: true, wenn eine Spanne übertragen wurde.
+function applyRangeSelection(prefix, target) {
+    const checkboxSelector = `.${prefix}-mapping-checkbox`;
+    const visible = visibleCheckboxes(checkboxSelector);
+    const from = visible.indexOf(rangeAnchors[prefix]);
+    const to = visible.indexOf(target);
+    // Kein Anker, Anker aus einer neu gebauten Tabelle, Anker oder Ziel gerade
+    // ausgefiltert, oder beides dieselbe Zeile: keine Spanne.
+    if (from === -1 || to === -1 || from === to) return false;
+    const state = visible[from].checked;
+    const lo = Math.min(from, to);
+    const hi = Math.max(from, to);
+    for (let i = lo; i <= hi; i++) visible[i].checked = state;
+    syncSelectAll(`${prefix}SelectAll`, checkboxSelector);
+    updateSelectionCounter(`${prefix}SelectionCounter`, checkboxSelector);
+    scheduleSave();
+    return true;
+}
+
+// Kern der Klick-Logik, bewusst getrennt vom Event-Listener: der Listener wird
+// erst bei DOMContentLoaded installiert, in jsdom-Tests läuft er deshalb nie.
+function handleSelectionClick(prefix, checkbox, shiftKey) {
+    // Bei erfolgreicher Spanne bleibt der Anker stehen – ein weiterer
+    // Shift-Klick spannt dadurch erneut von derselben Zeile aus.
+    if (shiftKey && applyRangeSelection(prefix, checkbox)) return;
+    rangeAnchors[prefix] = checkbox;
 }
 
 async function copyToClipboard(sourceId, statusFn, label) {
@@ -958,11 +1029,17 @@ function displaySqlMappingSelection(potentialMappings) {
     // String-Replace-Wörter zuerst (aus sqlStringReplaceMapping)
     sqlStringReplaceMapping.forEach((placeholder, word) =>
         rows.push({ name: word, value: placeholder, type: 'String' }));
-    // SQL-Elemente alphabetisch sortiert
-    Array.from(potentialMappings.keys()).sort((a, b) => a.localeCompare(b)).forEach(element => {
-        const mapping = potentialMappings.get(element);
-        rows.push({ name: element, value: mapping.obfuscated, type: mapping.type });
-    });
+    // SQL-Elemente alphabetisch sortiert. Einträge, die bereits als
+    // String-Replace-Zeile gerendert wurden, hier überspringen (Befund: beim
+    // Wiederherstellen aus loadState() landen String-Replace-Zeilen erneut in
+    // potentialMappings, weil restoreSqlSelection() unterschiedslos alle
+    // gespeicherten Zeilen einspeist – ohne diesen Filter erscheinen sie doppelt).
+    Array.from(potentialMappings.keys())
+        .filter(element => !sqlStringReplaceMapping.has(element))
+        .sort((a, b) => a.localeCompare(b)).forEach(element => {
+            const mapping = potentialMappings.get(element);
+            rows.push({ name: element, value: mapping.obfuscated, type: mapping.type });
+        });
     renderSelectionTable(SQL_TABLE, rows);
 
     const sqlSelSec = document.getElementById('sqlMappingSelectionSection');
@@ -1211,7 +1288,8 @@ window.ObfuscatorUI = {
     saveState, loadState, clearTabState, resetCsharpFields, resetSqlFields,
     captureSections, applySections,
     // Chip-/Auswahltabellen-Helfer:
-    addChip, applyMappingFilter, updateSelectionCounter,
+    addChip, applyMappingFilter, updateSelectionCounter, selectStringReplaceOnly,
+    handleSelectionClick,
     showStatus, showSqlStatus, notifyGlobal,
     // Nur lesender Zugriff auf den internen Zustand (für Test-Assertions).
     _state: {
@@ -1251,6 +1329,7 @@ const ACTIONS = {
     switchTab: el => switchTab(el.dataset.tab),
     analyzeCode, clearAll, obfuscateCode, copyObfuscated, deobfuscateCode, copyFinal,
     analyzeSqlCode, clearSqlAll, obfuscateSqlCode, copySqlObfuscated, deobfuscateSqlCode, copySqlFinal,
+    selectStringReplaceOnly: el => selectStringReplaceOnly(el.dataset.prefix),
     addCsharpChip: () => {
         const input = document.getElementById('stringReplaceInput');
         const before = csharpReplaceWords.length;
@@ -1360,6 +1439,25 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (ev.target.id === 'csharpSelectAll' || ev.target.id === 'sqlSelectAll') {
             scheduleSave();
         }
+    });
+
+    // Shift-Bereichsauswahl. Der Browser hat die angeklickte Box hier bereits
+    // umgeschaltet; handleSelectionClick schreibt den Zustand des Ankers
+    // anschließend über die gesamte Spanne.
+    document.addEventListener('click', (ev) => {
+        const cb = ev.target;
+        if (!cb || !cb.matches) return;
+        const prefix = cb.matches('.csharp-mapping-checkbox') ? 'csharp'
+            : cb.matches('.sql-mapping-checkbox') ? 'sql' : null;
+        if (!prefix) return;
+        handleSelectionClick(prefix, cb, ev.shiftKey);
+    });
+
+    // Ohne das markiert der Shift-Klick den Text zwischen beiden Zeilen. Das
+    // Umschalten der Checkbox hängt am click-Event und bleibt unberührt.
+    document.addEventListener('mousedown', (ev) => {
+        if (!ev.shiftKey || !ev.target || !ev.target.matches) return;
+        if (ev.target.matches('.csharp-mapping-checkbox, .sql-mapping-checkbox')) ev.preventDefault();
     });
 });
 

@@ -143,6 +143,37 @@ JSDOM.fromFile(path.join(__dirname, '..', 'obfuscator.html'), {
             return doc.getElementById('statusMessage').textContent.includes('erneut analysieren');
         })(), doc.getElementById('statusMessage').textContent);
 
+        // ── Finding 1 (Regressionstest): SQL-Auswahltabelle nach loadState() ────
+        // Bug: restoreSqlSelection speiste ALLE gespeicherten Zeilen (auch die mit
+        // type === 'String') in potentialMappings ein; displaySqlMappingSelection
+        // hängte die String-Replace-Zeile danach ein zweites Mal aus
+        // sqlStringReplaceMapping an. Reproduziert mit "SELECT UserName FROM Users"
+        // und dem String-Replace-Begriff "Users".
+        UI._test.resetSql();
+        UI.resetSqlFields();
+        doc.getElementById('sqlOriginalCode').value = 'SELECT UserName FROM Users';
+        UI.addChip('Users', UI._state.sqlReplaceWords, 'sqlStringReplaceChips');
+        click(doc.querySelector('[data-action="analyzeSqlCode"]'));
+        click(doc.querySelector('[data-action="obfuscateSqlCode"]'));
+
+        const rowsBeforeReload = Array.from(doc.querySelectorAll('.sql-mapping-checkbox'))
+            .map(cb => `${cb.dataset.element}/${cb.dataset.type}`);
+        it('Finding 1 Vorbereitung: genau 2 Zeilen vor dem Speichern (Users/String, UserName/Feld)',
+            rowsBeforeReload.length === 2, rowsBeforeReload.join(', '));
+
+        UI.saveState();
+        UI.resetSqlFields();
+        UI.loadState();
+
+        const rowsAfterReload = Array.from(doc.querySelectorAll('.sql-mapping-checkbox'))
+            .map(cb => `${cb.dataset.element}/${cb.dataset.type}`);
+        it('Finding 1: SQL-Auswahltabelle zeigt nach loadState() keine Geisterzeilen (Zeilenanzahl unverändert)',
+            rowsAfterReload.length === rowsBeforeReload.length,
+            `vorher: ${rowsBeforeReload.join(', ')} | nachher: ${rowsAfterReload.join(', ')}`);
+        it('Finding 1: SQL-Auswahltabelle zeigt nach loadState() dieselben Zeilen-Identitäten (kein doppeltes „Users/String")',
+            JSON.stringify(rowsAfterReload.slice().sort()) === JSON.stringify(rowsBeforeReload.slice().sort()),
+            `vorher: ${rowsBeforeReload.join(', ')} | nachher: ${rowsAfterReload.join(', ')}`);
+
         console.log(`\n──────────────────────────────────────────`);
         console.log(`Ergebnis: ${pass} bestanden, ${fail} fehlgeschlagen`);
         process.exit(fail ? 1 : 0);
