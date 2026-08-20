@@ -602,12 +602,12 @@ Expected: PASS — alle 5 Suiten `0 fehlgeschlagen`, ESLint ohne Ausgabe.
 - [ ] **Step 4: Publish-Ordner aktualisieren**
 
 Run: `powershell -File ./publish.ps1`
-Expected: Der Ordner `publish/` enthält den aktuellen Stand (Nutzerkonvention: nach jeder Session ausführen).
+Expected: Der Ordner `publish/` enthält den aktuellen Stand (Nutzerkonvention: nach jeder Session ausführen). `publish/` steht in `.gitignore` und wird **nicht** committet — der Ordner ist reine Build-Ausgabe.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add README.md publish
+git add README.md
 git commit -F - <<'EOF'
 docs: Auswahl-Tabelle im README beschreiben
 
