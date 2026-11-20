@@ -42,6 +42,82 @@ let statusTimer = null;
 let sqlStatusTimer = null;
 let globalTimer = null;
 
+// ── Workflow-Stepper ───────────────────────────────────────────────────────
+const stepperState = {
+    csharp: { current: 1, analysisDirty: false, selectionDirty: false },
+    sql:    { current: 1, analysisDirty: false, selectionDirty: false }
+};
+
+function canNavigateToStep(prefix, step) {
+    if (step === 1) return true;
+    const st = stepperState[prefix];
+    const hasAnalysis = prefix === 'csharp' ? lastAnalyzedCsharpFp !== null : lastAnalyzedSqlFp !== null;
+    if (step === 2) return hasAnalysis && !st.analysisDirty;
+    if (step === 3) {
+        const hasObf = prefix === 'csharp' ? hasObfuscatedCsharp : hasObfuscatedSql;
+        return hasObf && !st.analysisDirty && !st.selectionDirty;
+    }
+    return false;
+}
+
+function updateStepperUI(prefix) {
+    const stepper = document.getElementById(`${prefix}-stepper`);
+    if (!stepper) return;
+    const current = stepperState[prefix].current;
+    stepper.querySelectorAll('.wf-step').forEach(btn => {
+        const n = +btn.dataset.wfStep;
+        const active = n === current;
+        const avail = !active && canNavigateToStep(prefix, n);
+        btn.classList.toggle('wf-active', active);
+        btn.classList.toggle('wf-available', avail);
+        btn.classList.toggle('wf-locked', !active && !avail);
+        btn.disabled = !active && !avail;
+        btn.setAttribute('aria-current', active ? 'step' : 'false');
+    });
+    stepper.querySelectorAll('.wf-connector').forEach((conn, idx) => {
+        conn.classList.toggle('wf-done', canNavigateToStep(prefix, idx + 2));
+    });
+}
+
+function goToStep(prefix, step, scroll = true) {
+    stepperState[prefix].current = step;
+    [1, 2, 3].forEach(n => {
+        const panel = document.getElementById(`${prefix}-panel-${n}`);
+        if (panel) {
+            if (n === step) panel.removeAttribute('hidden');
+            else panel.setAttribute('hidden', '');
+        }
+    });
+    updateStepperUI(prefix);
+    if (scroll) {
+        const stepper = document.getElementById(`${prefix}-stepper`);
+        if (stepper && stepper.scrollIntoView) stepper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function markAnalysisDirty(prefix) {
+    stepperState[prefix].analysisDirty = true;
+    stepperState[prefix].selectionDirty = true;
+    updateStepperUI(prefix);
+}
+
+function markObfuscationDirty(prefix) {
+    if (!stepperState[prefix].analysisDirty) {
+        stepperState[prefix].selectionDirty = true;
+        updateStepperUI(prefix);
+    }
+}
+
+function initStepperFromLoadedState() {
+    ['csharp', 'sql'].forEach(prefix => {
+        const hasAnalysis = prefix === 'csharp' ? lastAnalyzedCsharpFp !== null : lastAnalyzedSqlFp !== null;
+        const hasObf = prefix === 'csharp' ? hasObfuscatedCsharp : hasObfuscatedSql;
+        stepperState[prefix].analysisDirty = false;
+        stepperState[prefix].selectionDirty = false;
+        goToStep(prefix, hasObf ? 3 : hasAnalysis ? 2 : 1, false);
+    });
+}
+
 const Core = (typeof ObfuscatorCore !== 'undefined')
     ? ObfuscatorCore
     : (typeof require !== 'undefined' ? require('./obfuscator-core.js') : null);
@@ -105,6 +181,9 @@ function renderChip(word, arr, containerId) {
         if (idx !== -1) arr.splice(idx, 1);
         chip.remove();
         scheduleSave();
+        const dirtyPrefix = containerId === 'stringReplaceChips' ? 'csharp'
+                          : containerId === 'sqlStringReplaceChips' ? 'sql' : null;
+        if (dirtyPrefix) markAnalysisDirty(dirtyPrefix);
     });
     chip.appendChild(label);
     chip.appendChild(btn);
@@ -133,6 +212,11 @@ function addChip(word, arr, containerId, skipValidation) {
     arr.push(trimmed);
     renderChip(trimmed, arr, containerId);
     scheduleSave();
+    if (!restoring) {
+        const dirtyPrefix = containerId === 'stringReplaceChips' ? 'csharp'
+                          : containerId === 'sqlStringReplaceChips' ? 'sql' : null;
+        if (dirtyPrefix) markAnalysisDirty(dirtyPrefix);
+    }
 }
 
 function clearChips(arr, containerId) {
@@ -627,6 +711,7 @@ function selectStringReplaceOnly(prefix) {
     syncSelectAll(`${prefix}SelectAll`, checkboxSelector);
     updateSelectionCounter(`${prefix}SelectionCounter`, checkboxSelector);
     scheduleSave();
+    markObfuscationDirty(prefix);
     const statusFn = prefix === 'sql' ? showSqlStatus : showStatus;
     statusFn(`${selected} String-Replace-Elemente ausgewählt, ${all.length - selected} abgewählt.`);
 }
@@ -721,7 +806,6 @@ function analyzeCode() {
     const csharpSelSec = document.getElementById('csharpMappingSelectionSection');
     csharpSelSec.style.display = 'block';
     csharpSelSec.classList.remove('collapsed');
-    if (csharpSelSec.scrollIntoView) csharpSelSec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     document.getElementById('obfuscatedSection').style.display = 'none';
     document.getElementById('csharpUsedMappingSection').style.display = 'none';
     document.getElementById('aiResponseSection').style.display = 'none';
@@ -737,6 +821,9 @@ function analyzeCode() {
     if (strCount > 0) parts.push(`${strCount} String-Replace`);
     if (autoCount > 0) parts.push(`${autoCount} Auto-Erkannt`);
     showStatus(`${total} Elemente erkannt (${parts.join(', ')}). Auswahl treffen und "Verschleiern" klicken.`);
+    stepperState.csharp.analysisDirty = false;
+    stepperState.csharp.selectionDirty = false;
+    goToStep('csharp', 2);
     saveState();
 }
 
@@ -893,6 +980,8 @@ function obfuscateCode() {
         `Code ${replacedCount === 0 ? 'NICHT verschleiert' : 'verschleiert'}! ${replacedCount} Ersetzung(en) vorgenommen.${warning}`,
         hasIssue ? 'error' : 'success'
     );
+    stepperState.csharp.selectionDirty = false;
+    goToStep('csharp', 3);
     saveState();
 }
 
@@ -964,6 +1053,9 @@ function resetCsharpFields() {
         .forEach(id => { document.getElementById(id).style.display = 'none'; });
     const csContainer = document.getElementById('csharpMappingSelectionContainer');
     if (csContainer) csContainer.innerHTML = '';
+    stepperState.csharp.analysisDirty = false;
+    stepperState.csharp.selectionDirty = false;
+    goToStep('csharp', 1);
 }
 
 function clearAll() {
@@ -1021,6 +1113,9 @@ function analyzeSqlCode() {
     document.getElementById('sqlObfuscatedCode').value = '';
     document.getElementById('sqlAiResponse').value = '';
     document.getElementById('sqlFinalCode').value = '';
+    stepperState.sql.analysisDirty = false;
+    stepperState.sql.selectionDirty = false;
+    goToStep('sql', 2);
     saveState();
 }
 
@@ -1045,7 +1140,6 @@ function displaySqlMappingSelection(potentialMappings) {
     const sqlSelSec = document.getElementById('sqlMappingSelectionSection');
     sqlSelSec.style.display = 'block';
     sqlSelSec.classList.remove('collapsed');
-    if (sqlSelSec.scrollIntoView) sqlSelSec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function obfuscateSqlCode() {
@@ -1117,6 +1211,8 @@ function obfuscateSqlCode() {
         `SQL Code ${replacedCount === 0 ? 'NICHT verschleiert' : 'verschleiert'}! ${replacedCount} Ersetzung(en) vorgenommen (${sqlStringReplaceMapping.size} Strings, ${sqlMapping.size} SQL-Elemente).${warning}`,
         hasIssue ? 'error' : 'success'
     );
+    stepperState.sql.selectionDirty = false;
+    goToStep('sql', 3);
     saveState();
 }
 
@@ -1181,6 +1277,9 @@ function resetSqlFields() {
         .forEach(id => { document.getElementById(id).style.display = 'none'; });
     const sqlContainer = document.getElementById('sqlMappingSelectionContainer');
     if (sqlContainer) sqlContainer.innerHTML = '';
+    stepperState.sql.analysisDirty = false;
+    stepperState.sql.selectionDirty = false;
+    goToStep('sql', 1);
 }
 
 function clearSqlAll() {
@@ -1348,9 +1447,18 @@ const ACTIONS = {
 
 document.addEventListener('DOMContentLoaded', () => {
     loadState();
+    initStepperFromLoadedState();
 
     // Zentrale Klick-Delegation für alle [data-action]-Elemente und collapsible Header.
     document.addEventListener('click', (ev) => {
+        // Stepper-Tab-Klick
+        const stepBtn = ev.target.closest && ev.target.closest('.wf-step');
+        if (stepBtn && !stepBtn.disabled) {
+            const prefix = stepBtn.dataset.wfPrefix;
+            const step = +stepBtn.dataset.wfStep;
+            if (prefix && step && canNavigateToStep(prefix, step)) goToStep(prefix, step);
+            return;
+        }
         const h3 = ev.target.closest && ev.target.closest('h3.collapsible');
         if (h3 && !ev.target.closest('[data-action]')) {
             h3.closest('.section').classList.toggle('collapsed');
@@ -1402,6 +1510,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el) el.addEventListener('input', scheduleSave);
     });
 
+    // Dirty-Tracking: Änderungen am Ursprungscode invalidieren die Analyse.
+    const origEl = document.getElementById('originalCode');
+    if (origEl) origEl.addEventListener('input', () => { if (!restoring) markAnalysisDirty('csharp'); });
+    const sqlOrigEl = document.getElementById('sqlOriginalCode');
+    if (sqlOrigEl) sqlOrigEl.addEventListener('input', () => { if (!restoring) markAnalysisDirty('sql'); });
+
     const csharpChipInput = document.getElementById('stringReplaceInput');
     if (csharpChipInput) {
         csharpChipInput.addEventListener('keydown', (ev) => {
@@ -1432,12 +1546,18 @@ document.addEventListener('DOMContentLoaded', () => {
             syncSelectAll('csharpSelectAll', '.csharp-mapping-checkbox');
             updateSelectionCounter('csharpSelectionCounter', '.csharp-mapping-checkbox');
             scheduleSave();
+            markObfuscationDirty('csharp');
         } else if (ev.target.matches('.sql-mapping-checkbox')) {
             syncSelectAll('sqlSelectAll', '.sql-mapping-checkbox');
             updateSelectionCounter('sqlSelectionCounter', '.sql-mapping-checkbox');
             scheduleSave();
-        } else if (ev.target.id === 'csharpSelectAll' || ev.target.id === 'sqlSelectAll') {
+            markObfuscationDirty('sql');
+        } else if (ev.target.id === 'csharpSelectAll') {
             scheduleSave();
+            markObfuscationDirty('csharp');
+        } else if (ev.target.id === 'sqlSelectAll') {
+            scheduleSave();
+            markObfuscationDirty('sql');
         }
     });
 

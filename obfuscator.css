@@ -579,6 +579,110 @@ button:disabled:hover {
     display: none;
 }
 
+/* Workflow-Stepper ───────────────────────────────────────────────────── */
+.workflow-stepper {
+    display: flex;
+    align-items: flex-start;
+    padding: 20px 0 16px;
+}
+
+.wf-panel[hidden] {
+    display: none !important;
+}
+
+.wf-step {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 0;
+    min-width: 72px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: #606070;
+    cursor: pointer;
+    background: none;
+    transition: color 0.2s;
+    overflow: visible;
+}
+
+.wf-step:hover:not(:disabled),
+.wf-step:focus-visible {
+    box-shadow: none;
+    outline: none;
+}
+
+.wf-step:focus-visible .wf-num {
+    outline: 2px solid #0d7bc2;
+    outline-offset: 2px;
+}
+
+.wf-step:disabled,
+.wf-step:disabled:hover {
+    border: none;
+    box-shadow: none;
+    background: none;
+    cursor: not-allowed;
+}
+
+.wf-num {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    border: 2px solid currentColor;
+    background: transparent;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.wf-label {
+    white-space: nowrap;
+}
+
+.wf-connector {
+    flex: 1;
+    height: 2px;
+    background: #3a3a4a;
+    margin-top: 15px;
+    transition: background 0.2s;
+}
+
+.wf-step.wf-active {
+    color: #0d7bc2;
+}
+
+.wf-step.wf-active .wf-num {
+    background: #0d7bc2;
+    border-color: #0d7bc2;
+    color: #fff;
+}
+
+.wf-step.wf-available {
+    color: #c0c0d0;
+}
+
+.wf-step.wf-available:hover {
+    color: #0d7bc2;
+}
+
+.wf-step.wf-locked {
+    color: #454555;
+}
+
+.wf-connector.wf-done {
+    background: #0d7bc2;
+}
+
 /* U1: Muss am Dateiende stehen, damit diese Regeln (gleiche Spezifität) die
    unbedingten Regeln weiter oben (z.B. .code-row, .header-row) überschreiben. */
 @media (max-width: 768px) {
