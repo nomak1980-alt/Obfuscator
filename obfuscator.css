@@ -575,6 +575,28 @@ button:disabled:hover {
     white-space: nowrap;
 }
 
+/* Knopfleiste der Auswahl: klebt bei langen Tabellen am unteren Fensterrand
+   und sitzt am Tabellenende normal. Kein Vorfahre (.section, .wf-panel,
+   .container) darf overflow setzen, sonst greift sticky nicht mehr. Die
+   negativen Ränder ziehen die Leiste über das Innenpolster der .section,
+   damit sie am Ende bündig mit deren Unterkante abschließt. */
+.selection-action-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin: 15px -20px -20px;
+    padding: 12px 20px;
+    background: #1a1a1a;
+    border-top: 1px solid #2d2d2d;
+    border-radius: 0 0 15px 15px;
+    box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.45);
+}
+
 .mapping-selection-table tr.filtered-out {
     display: none;
 }
@@ -696,6 +718,16 @@ button:disabled:hover {
     }
 
     .button-group button {
+        width: 100%;
+    }
+
+    .selection-action-bar {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+    }
+
+    .selection-action-bar button {
         width: 100%;
     }
 

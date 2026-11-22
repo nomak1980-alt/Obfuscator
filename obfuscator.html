@@ -122,14 +122,13 @@
             <!-- Schritt 2: Auswahl -->
             <div class="wf-panel" id="csharp-panel-2" hidden>
                 <div class="section" id="csharpMappingSelectionSection" style="display: none;">
-                    <h3 class="collapsible" title="Sektion ein-/ausklappen">
+                    <h3>
                         <span class="h3-title">
                             <svg class="icon" viewBox="0 0 24 24">
                                 <path d="M9,5V9H21V5M9,19H21V15H9M9,12H21V10H9M4,9H8V5H4M4,19H8V15H4M4,12H8V10H4V12" />
                             </svg>
                             Auswahl der zu verschleiernden Elemente
                         </span>
-                        <svg class="chevron" viewBox="0 0 24 24" fill="currentColor"><path d="M7,10L12,15L17,10H7Z"/></svg>
                     </h3>
                     <div class="mapping-filter-row">
                         <input type="text" id="csharpFilterInput" class="chip-input-field" placeholder="Filter: Original enthält…" aria-label="Auswahltabelle nach Original filtern">
@@ -137,10 +136,10 @@
                             <option value="">Alle Typen</option>
                         </select>
                         <button type="button" class="btn-secondary" id="csharpSelectStringOnly" data-action="selectStringReplaceOnly" data-prefix="csharp" title="Wählt genau die Elemente aus, die über String-Replace in die Liste gekommen sind" disabled>Nur String-Replace</button>
-                        <span id="csharpSelectionCounter" class="mapping-selection-counter"></span>
                     </div>
                     <div id="csharpMappingSelectionContainer"></div>
-                    <div class="button-group" style="margin-top: 15px;">
+                    <div class="selection-action-bar">
+                        <span id="csharpSelectionCounter" class="mapping-selection-counter"></span>
                         <button class="btn-primary" data-action="obfuscateCode">🔒 Ausgewählte Elemente Verschleiern</button>
                     </div>
                 </div>
@@ -288,14 +287,13 @@
             <!-- Schritt 2: Auswahl -->
             <div class="wf-panel" id="sql-panel-2" hidden>
                 <div class="section" id="sqlMappingSelectionSection" style="display: none;">
-                    <h3 class="collapsible" title="Sektion ein-/ausklappen">
+                    <h3>
                         <span class="h3-title">
                             <svg class="icon" viewBox="0 0 24 24">
                                 <path d="M9,5V9H21V5M9,19H21V15H9M9,12H21V10H9M4,9H8V5H4M4,19H8V15H4M4,12H8V10H4V12" />
                             </svg>
                             Auswahl der zu verschleiernden SQL-Elemente
                         </span>
-                        <svg class="chevron" viewBox="0 0 24 24" fill="currentColor"><path d="M7,10L12,15L17,10H7Z"/></svg>
                     </h3>
                     <div class="mapping-filter-row">
                         <input type="text" id="sqlFilterInput" class="chip-input-field" placeholder="Filter: Original enthält…" aria-label="Auswahltabelle nach Original filtern">
@@ -303,10 +301,10 @@
                             <option value="">Alle Typen</option>
                         </select>
                         <button type="button" class="btn-secondary" id="sqlSelectStringOnly" data-action="selectStringReplaceOnly" data-prefix="sql" title="Wählt genau die Elemente aus, die über String-Replace in die Liste gekommen sind" disabled>Nur String-Replace</button>
-                        <span id="sqlSelectionCounter" class="mapping-selection-counter"></span>
                     </div>
                     <div id="sqlMappingSelectionContainer"></div>
-                    <div class="button-group" style="margin-top: 15px;">
+                    <div class="selection-action-bar">
+                        <span id="sqlSelectionCounter" class="mapping-selection-counter"></span>
                         <button class="btn-primary" data-action="obfuscateSqlCode">🔒 Ausgewählte SQL-Elemente Verschleiern</button>
                     </div>
                 </div>

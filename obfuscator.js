@@ -404,7 +404,12 @@ function applySections(sections) {
             return;
         }
         el.style.display = (entry && entry.display) || 'none';
-        el.classList.toggle('collapsed', !!(entry && entry.collapsed));
+        // Nur Sektionen mit einklappbarer Überschrift dürfen eingeklappt
+        // wiederhergestellt werden. Die Auswahl-Sektionen sind seit dem
+        // Workflow-Stepper nicht mehr einklappbar; ein alter Stand mit
+        // collapsed: true darf sie nicht unerreichbar zuklappen.
+        const collapsible = !!el.querySelector(':scope > h3.collapsible');
+        el.classList.toggle('collapsed', collapsible && !!(entry && entry.collapsed));
     });
 }
 
@@ -968,7 +973,6 @@ function obfuscateCode() {
     document.getElementById('obfuscatedCode').value = obfuscatedCode;
     document.getElementById('obfuscatedSection').style.display = 'block';
     document.getElementById('aiResponseSection').style.display = 'block';
-    document.getElementById('csharpMappingSelectionSection').classList.add('collapsed');
 
     updateCsharpUsedMappingDisplay();
     const total = stringReplaceMapping.size + csharpAutoMapping.size;
@@ -1197,7 +1201,6 @@ function obfuscateSqlCode() {
     document.getElementById('sqlObfuscatedCode').value = obfuscatedCode;
     document.getElementById('sqlObfuscatedSection').style.display = 'block';
     document.getElementById('sqlAiResponseSection').style.display = 'block';
-    document.getElementById('sqlMappingSelectionSection').classList.add('collapsed');
     document.getElementById('sqlFinalSection').style.display = 'none';
     document.getElementById('sqlFinalCode').value = '';
 

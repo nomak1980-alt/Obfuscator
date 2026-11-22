@@ -98,6 +98,74 @@ function it(name, cond, extra) {
         } finally {
             await kbPage.close();
         }
+
+        // Sticky-Knopfleiste der Auswahl und Rücksprung zu Schritt 2, je Tab.
+        // Lange Liste (80 Elemente) erzwingt eine Tabelle über mehrere
+        // Fensterhöhen.
+        const cases = [
+            {
+                name: 'C#', tab: 'csharp', input: '#originalCode', analyze: 'analyzeCode',
+                obfuscate: 'obfuscateCode', section: '#csharpMappingSelectionSection',
+                code: 'class Foo { ' + Array.from({ length: 80 }, (_, i) => `public int Feld${i};`).join(' ') + ' }'
+            },
+            {
+                name: 'SQL', tab: 'mssql', prefix: 'sql', input: '#sqlOriginalCode', analyze: 'analyzeSqlCode',
+                obfuscate: 'obfuscateSqlCode', section: '#sqlMappingSelectionSection',
+                code: 'SELECT ' + Array.from({ length: 80 }, (_, i) => `t.Spalte${i}`).join(', ') + ' FROM dbo.Tabelle t'
+            }
+        ];
+        for (const c of cases) {
+            const prefix = c.prefix || c.tab;
+            const sp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+            try {
+                await sp.goto('file://' + path.join(__dirname, '..', 'obfuscator.html'));
+                await sp.click(`[data-action="switchTab"][data-tab="${c.tab}"]`);
+                await sp.fill(c.input, c.code);
+                await sp.click(`[data-action="${c.analyze}"]`);
+                const bar = sp.locator(`${c.section} .selection-action-bar`);
+                await bar.waitFor();
+
+                // Oberkante der Tabelle ins Bild: Leiste muss am Fensterrand kleben.
+                await sp.evaluate(sel => document.querySelector(sel + ' table').scrollIntoView({ block: 'start' }), c.section);
+                const mid = await sp.evaluate(sel => {
+                    const b = document.querySelector(sel + ' .selection-action-bar').getBoundingClientRect();
+                    const t = document.querySelector(sel + ' table').getBoundingClientRect();
+                    return { barBottom: b.bottom, tableBottom: t.bottom, vh: window.innerHeight };
+                }, c.section);
+                it(`${c.name}: Tabelle ist länger als das Fenster`, mid.tableBottom > mid.vh, JSON.stringify(mid));
+                it(`${c.name}: Knopfleiste klebt am unteren Fensterrand`,
+                    Math.abs(mid.barBottom - mid.vh) <= 1, JSON.stringify(mid));
+                it(`${c.name}: Zähler steht in der Knopfleiste`,
+                    await bar.locator(`#${prefix}SelectionCounter`).count() === 1);
+
+                // Ende der Sektion ins Bild: Leiste sitzt unter der Tabelle.
+                await sp.evaluate(sel => document.querySelector(sel).scrollIntoView({ block: 'end' }), c.section);
+                const end = await sp.evaluate(sel => {
+                    const b = document.querySelector(sel + ' .selection-action-bar').getBoundingClientRect();
+                    const t = document.querySelector(sel + ' table').getBoundingClientRect();
+                    const s = document.querySelector(sel).getBoundingClientRect();
+                    return { barTop: b.top, barBottom: b.bottom, tableBottom: t.bottom, secBottom: s.bottom };
+                }, c.section);
+                it(`${c.name}: am Tabellenende sitzt die Leiste unter der Tabelle`,
+                    end.barTop >= end.tableBottom - 1 && Math.abs(end.barBottom - end.secBottom) <= 1, JSON.stringify(end));
+
+                await sp.click(`[data-action="${c.obfuscate}"]`);
+                await sp.click(`.wf-step[data-wf-prefix="${prefix}"][data-wf-step="2"]`);
+                const back = await sp.evaluate(sel => {
+                    const s = document.querySelector(sel);
+                    return {
+                        collapsed: s.classList.contains('collapsed'),
+                        tableVisible: s.querySelector('table').getBoundingClientRect().height > 0,
+                        chevrons: s.querySelectorAll('.chevron').length
+                    };
+                }, c.section);
+                it(`${c.name}: nach Schritt 3 → Schritt 2 ist die Auswahl offen`,
+                    !back.collapsed && back.tableVisible, JSON.stringify(back));
+                it(`${c.name}: Auswahl-Überschrift hat keinen Ausklapp-Chevron mehr`, back.chevrons === 0);
+            } finally {
+                await sp.close();
+            }
+        }
     } finally {
         await browser.close();
     }

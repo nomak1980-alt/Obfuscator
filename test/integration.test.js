@@ -648,22 +648,59 @@ console.log('\n# R4 – csharpAutoTypeMap wird beim Verschleiern mit der Auswahl
         assert(UI._state.csharpAutoTypeMap.has('CustomerService'), 'CustomerService fehlt in csharpAutoTypeMap'));
 })();
 
-console.log('\n# U7 – collapsed-Zustand übersteht ein Neuladen');
+console.log('\n# Auswahl-Sektion bleibt nach dem Verschleiern offen');
 (() => {
     resetCsharp();
     setVal('originalCode', CSHARP_CODE);
-    UI.addChip('CustomerService', UI._state.csharpReplaceWords, 'stringReplaceChips');
     UI.analyzeCode();
-    UI.obfuscateCode(); // obfuscateCode() klappt die Auswahl-Sektion ein
-    it('Vorbereitung: Auswahl-Sektion ist eingeklappt', () =>
-        assert($('csharpMappingSelectionSection').classList.contains('collapsed')));
+    UI.obfuscateCode();
+    it('C#: Auswahl-Sektion nach obfuscateCode nicht eingeklappt', () =>
+        assert(!$('csharpMappingSelectionSection').classList.contains('collapsed')));
+    it('C#: Auswahl-Sektion bleibt sichtbar', () =>
+        eq($('csharpMappingSelectionSection').style.display, 'block'));
 
-    // saveState() ist gemockt – Sections direkt über die exportierte Funktion erfassen.
-    const savedSections = UI.captureSections(['csharpMappingSelectionSection']);
-    $('csharpMappingSelectionSection').classList.remove('collapsed'); // simuliert Neuladen (Klasse verloren)
-    UI.applySections(savedSections);
+    resetSql();
+    setVal('sqlOriginalCode', SQL_CODE);
+    UI.analyzeSqlCode();
+    UI.obfuscateSqlCode();
+    it('SQL: Auswahl-Sektion nach obfuscateSqlCode nicht eingeklappt', () =>
+        assert(!$('sqlMappingSelectionSection').classList.contains('collapsed')));
+    it('SQL: Auswahl-Sektion bleibt sichtbar', () =>
+        eq($('sqlMappingSelectionSection').style.display, 'block'));
+})();
+
+console.log('\n# Alter Stand mit eingeklappter Auswahl klappt sie nicht wieder zu');
+(() => {
+    // Stände von vor dem Wegfall des Zuklappens enthalten collapsed: true für
+    // die Auswahl-Sektionen. Die haben keinen Ausklapp-Kopf mehr – ein
+    // Zuklappen ließe sich in der Oberfläche nicht mehr rückgängig machen.
+    UI.applySections({
+        csharpMappingSelectionSection: { display: 'block', collapsed: true },
+        sqlMappingSelectionSection: { display: 'block', collapsed: true }
+    });
+    it('C#: collapsed aus altem Stand wird ignoriert', () =>
+        assert(!$('csharpMappingSelectionSection').classList.contains('collapsed')));
+    it('SQL: collapsed aus altem Stand wird ignoriert', () =>
+        assert(!$('sqlMappingSelectionSection').classList.contains('collapsed')));
+    it('display aus altem Stand wird weiterhin übernommen', () =>
+        eq($('csharpMappingSelectionSection').style.display, 'block'));
+})();
+
+console.log('\n# U7 – collapsed-Zustand einklappbarer Sektionen übersteht ein Neuladen');
+(() => {
+    // Die generische Mechanik gilt weiter für Sektionen mit h3.collapsible.
+    const sec = doc.createElement('div');
+    sec.id = 'testCollapsibleSection';
+    sec.innerHTML = '<h3 class="collapsible">Titel</h3><p>Inhalt</p>';
+    doc.body.appendChild(sec);
+    sec.classList.add('collapsed');
+    const saved = UI.captureSections(['testCollapsibleSection']);
+    it('captureSections erfasst collapsed: true', () => eq(saved.testCollapsibleSection.collapsed, true));
+    sec.classList.remove('collapsed'); // simuliert Neuladen (Klasse verloren)
+    UI.applySections(saved);
     it('collapsed-Klasse nach applySections wiederhergestellt', () =>
-        assert($('csharpMappingSelectionSection').classList.contains('collapsed')));
+        assert(sec.classList.contains('collapsed')));
+    sec.remove();
 })();
 
 console.log('\n# U8 – Filter/Zähler für die Auswahltabelle');

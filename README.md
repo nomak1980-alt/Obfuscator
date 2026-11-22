@@ -25,6 +25,8 @@ Dieser Obfuscator hilft dabei, vertrauliche Bezeichner im Code zu verschleiern, 
 
 ### **Auswahl-Tabelle**
 - Textfilter und Typ-Filter grenzen große Listen ein; die Kopf-Checkbox wirkt nur auf die sichtbaren Zeilen, der Zähler weist sichtbare und gesamte Auswahl getrennt aus.
+- Der Knopf **Ausgewählte Elemente Verschleiern** steht mit dem Auswahlzähler in einer Leiste, die bei langen Tabellen am unteren Fensterrand mitläuft – kein Scrollen bis zum Tabellenende nötig.
+- Die Auswahl bleibt nach dem Verschleiern aufgeklappt: Ein Klick zurück auf Schritt 2 im Workflow zeigt sie unverändert, auch nach einem Neuladen.
 - **Nur String-Replace** setzt die Auswahl in einem Schritt exklusiv auf die Elemente, die über das String-Replace in die Liste gekommen sind – über die ganze Tabelle, auch über gerade ausgefilterte Zeilen. Ohne solche Elemente ist der Button gesperrt.
 - **Shift-Klick** überträgt eine Spanne: erst eine Zeile anklicken (an oder ab), dann eine zweite mit gedrückter Shift-Taste – alle sichtbaren Zeilen dazwischen übernehmen den Zustand der ersten. Ausgefilterte Zeilen bleiben unverändert. Per Tastatur geht dasselbe: eine Checkbox per Tab fokussieren und mit der Leertaste umschalten, zu einer weiteren tabben und dort Shift+Leertaste drücken.
 
