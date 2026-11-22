@@ -103,12 +103,30 @@ textarea:focus {
     box-shadow: none;
 }
 
+#originalCode {
+    min-height: 500px;
+}
+
 .button-group {
     display: flex;
     gap: 15px;
-    justify-content: center;
+    justify-content: flex-end;
     margin: 20px 0;
     flex-wrap: wrap;
+}
+
+/* Sticky-Leiste für die Aktions-Buttons in Schritt 1 (Eingabe) –
+   spiegelt das Verhalten der .selection-action-bar in Schritt 2. */
+.wf-panel > .button-group {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    margin: 15px -30px -30px;
+    padding: 12px 30px;
+    background: #1a1a1a;
+    border-top: 1px solid #2d2d2d;
+    border-radius: 0 0 20px 20px;
+    box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.45);
 }
 
 button {
@@ -719,6 +737,12 @@ button:disabled:hover {
 
     .button-group button {
         width: 100%;
+    }
+
+    .wf-panel > .button-group {
+        margin: 15px -20px -20px;
+        padding: 12px 20px;
+        border-radius: 0 0 15px 15px;
     }
 
     .selection-action-bar {

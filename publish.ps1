@@ -26,6 +26,7 @@ $files = @(
     "obfuscator.js",
     "COHeader.jpg",
     "COIcon.jpg",
+    "COIcon.ico",
     "README.md"
 )
 
@@ -44,6 +45,12 @@ $htmlPath = Join-Path $publishDir "obfuscator.html"
 (Get-Content $htmlPath -Raw) -replace '(?<=class="version-badge">v)[\d.]+(?=</span>)', $version |
     Set-Content $htmlPath -NoNewline
 Write-Host "  Version-Badge gesetzt: v$version"
+
+$zipName = "CodeObfuscator-v$version.zip"
+$zipPath = Join-Path $PSScriptRoot $zipName
+if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+Compress-Archive -Path (Join-Path $publishDir "*") -DestinationPath $zipPath
+Write-Host "  ZIP erstellt:  $zipName"
 
 Write-Host ""
 Write-Host "Publish-Ordner bereit: $publishDir"
